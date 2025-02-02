@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, Dimensions, Animated, KeyboardAvoidingView, Platform } from 'react-native';
-import { Button, Text, TextInput } from 'react-native-paper';
+import { View, StyleSheet, Dimensions, Animated, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { Button, Text, TextInput, ActivityIndicator } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { RootStackParamList } from '../../types/navigation';
+import { useAuth } from '../../hooks/useAuth';
 
 const { width } = Dimensions.get('window');
 
@@ -16,6 +17,10 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const { login } = useAuth();
+  
   const fadeAnim = new Animated.Value(0);
   const slideAnim = new Animated.Value(50);
 
@@ -35,8 +40,24 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
     ]).start();
   }, []);
 
-  const handleLogin = () => {
-    // Implement login logic here
+  const handleLogin = async () => {
+    if (!email || !password) {
+      setError('Please fill in all fields');
+      return;
+    }
+
+    setError('');
+    setIsLoading(true);
+    try {
+      await login(email, password);
+      // Navigate to Home screen after successful login
+      navigation.replace('Main', { screen: 'Home' });
+    } catch (err) {
+      setError('Login failed. Please try again.');
+      console.error('Login error:', err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -45,78 +66,81 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
-        <Animated.View 
-          style={[
-            styles.content,
-            {
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
-            },
-          ]}
-        >
-          <View style={styles.header}>
-            <MaterialCommunityIcons
-              name="account-circle"
-              size={80}
-              color="#6C63FF"
-            />
-            <Text variant="headlineMedium" style={styles.title}>
-              Welcome Back
-            </Text>
-            <Text variant="bodyLarge" style={styles.subtitle}>
-              Sign in to continue
-            </Text>
-          </View>
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <Animated.View 
+            style={[
+              styles.content,
+              {
+                opacity: fadeAnim,
+                transform: [{ translateY: slideAnim }],
+              },
+            ]}
+          >
+            <View style={styles.header}>
+              <MaterialCommunityIcons
+                name="account"
+                size={80}
+                color="#6C63FF"
+              />
+              <Text variant="headlineMedium" style={styles.title}>
+                Welcome Back
+              </Text>
+              <Text variant="bodyLarge" style={styles.subtitle}>
+                Sign in to continue
+              </Text>
+            </View>
 
-          <View style={styles.form}>
-            <TextInput
-              mode="outlined"
-              label="Email"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              style={styles.input}
-              outlineColor="#6C63FF"
-              activeOutlineColor="#6C63FF"
-            />
+            <View style={styles.form}>
+              <TextInput
+                mode="outlined"
+                label="Email"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                style={styles.input}
+                outlineColor="#6C63FF"
+                activeOutlineColor="#6C63FF"
+              />
 
-            <TextInput
-              mode="outlined"
-              label="Password"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={!showPassword}
-              right={
-                <TextInput.Icon
-                  icon={showPassword ? 'eye-off' : 'eye'}
-                  onPress={() => setShowPassword(!showPassword)}
-                />
-              }
-              style={styles.input}
-              outlineColor="#6C63FF"
-              activeOutlineColor="#6C63FF"
-            />
+              <TextInput
+                mode="outlined"
+                label="Password"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+                right={
+                  <TextInput.Icon
+                    icon={showPassword ? 'eye-off' : 'eye'}
+                    onPress={() => setShowPassword(!showPassword)}
+                  />
+                }
+                style={styles.input}
+                outlineColor="#6C63FF"
+                activeOutlineColor="#6C63FF"
+              />
 
-            <Button
-              mode="text"
-              onPress={() => navigation.navigate('ForgotPassword')}
-              style={styles.forgotPassword}
-            >
-              Forgot Password?
-            </Button>
+              <Button
+                mode="contained"
+                onPress={handleLogin}
+                style={styles.loginButton}
+                contentStyle={styles.buttonContent}
+                labelStyle={styles.buttonLabel}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  'Sign in'
+                )}
+              </Button>
 
-            <Button
-              mode="contained"
-              onPress={handleLogin}
-              style={styles.loginButton}
-              contentStyle={styles.buttonContent}
-              labelStyle={styles.buttonLabel}
-            >
-              Log in
-            </Button>
-          </View>
-        </Animated.View>
+              {error ? (
+                <Text style={styles.errorText}>{error}</Text>
+              ) : null}
+            </View>
+          </Animated.View>
+        </ScrollView>
       </KeyboardAvoidingView>
 
       <View style={styles.footer}>
@@ -169,12 +193,9 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     backgroundColor: '#fff',
   },
-  forgotPassword: {
-    alignSelf: 'flex-end',
-    marginBottom: 24,
-  },
   loginButton: {
     backgroundColor: '#6C63FF',
+    marginTop: 8,
     marginBottom: 16,
   },
   buttonContent: {
@@ -195,6 +216,11 @@ const styles = StyleSheet.create({
   link: {
     color: '#6C63FF',
     fontWeight: '600',
+  },
+  errorText: {
+    color: 'red',
+    textAlign: 'center',
+    marginTop: 8,
   },
 });
 

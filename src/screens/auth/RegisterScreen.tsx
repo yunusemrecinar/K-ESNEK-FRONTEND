@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, Dimensions, Animated, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
-import { Button, Text, TextInput } from 'react-native-paper';
+import { Button, Text, TextInput, ActivityIndicator } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { RootStackParamList } from '../../types/navigation';
+import { useAuth } from '../../hooks/useAuth';
 
 const { width } = Dimensions.get('window');
 
@@ -20,6 +21,9 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
   const [showPassword, setShowPassword] = useState(false);
   const fadeAnim = new Animated.Value(0);
   const slideAnim = new Animated.Value(50);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const { register } = useAuth();
 
   useEffect(() => {
     Animated.parallel([
@@ -37,8 +41,29 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
     ]).start();
   }, []);
 
-  const handleRegister = () => {
-    // Implement registration logic here
+  const handleRegister = async () => {
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    if (!fullName || !email || !password) {
+      setError('Please fill in all fields');
+      return;
+    }
+
+    setError('');
+    setIsLoading(true);
+    try {
+      await register(fullName, email, password);
+      // Navigate to Home screen after successful registration
+      navigation.replace('Main', { screen: 'Home' });
+    } catch (err) {
+      setError('Registration failed. Please try again.');
+      console.error('Registration error:', err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -128,9 +153,18 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
                 style={styles.registerButton}
                 contentStyle={styles.buttonContent}
                 labelStyle={styles.buttonLabel}
+                disabled={isLoading}
               >
-                Sign up
+                {isLoading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  'Sign up'
+                )}
               </Button>
+
+              {error ? (
+                <Text style={styles.errorText}>{error}</Text>
+              ) : null}
             </View>
           </Animated.View>
         </ScrollView>
@@ -209,6 +243,11 @@ const styles = StyleSheet.create({
   link: {
     color: '#6C63FF',
     fontWeight: '600',
+  },
+  errorText: {
+    color: 'red',
+    textAlign: 'center',
+    marginTop: 8,
   },
 });
 
