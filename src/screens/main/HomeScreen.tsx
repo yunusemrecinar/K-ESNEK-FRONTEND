@@ -10,6 +10,7 @@ import {
 import { Text, Searchbar } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - 60) / 2;
@@ -39,6 +40,7 @@ const CategoryCard = ({ title, services, icon, onPress }: CategoryCardProps) => 
 
 const HomeScreen = () => {
   const [searchQuery, setSearchQuery] = React.useState('');
+  const navigation = useNavigation();
 
   const popularCategories = [
     {
@@ -78,6 +80,13 @@ const HomeScreen = () => {
       icon: 'translate',
     },
   ];
+
+  const handleCategoryPress = (categoryId: string, title: string) => {
+    navigation.navigate('Category', {
+      categoryId,
+      title,
+    });
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -128,7 +137,7 @@ const HomeScreen = () => {
                 title={category.title}
                 services={category.services}
                 icon={category.icon}
-                onPress={() => {}}
+                onPress={() => handleCategoryPress(category.id, category.title)}
               />
             ))}
           </View>
@@ -175,7 +184,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   categoriesSection: {
-    marginBottom: 24,
   },
   sectionHeader: {
     flexDirection: 'row',

@@ -14,28 +14,32 @@ A mobile application platform connecting freelancers with clients, built with Re
 
 ## Prerequisites
 
-- Node.js (v14 or higher)
+- Node.js (v16 or later)
 - npm or yarn
 - Expo CLI
-- iOS Simulator (Mac only) or Android Studio (for Android emulator)
+- iOS Simulator (Mac only) or Android Emulator
 
 ## Installation
 
-1. Install dependencies:
+1. Clone the repository:
+```bash
+git clone 
+
+2. Install dependencies:
 ```bash
 npm install
 # or
 yarn install
 ```
 
-2. Start the development server:
+3. Start the development server:
 ```bash
 npm start
 # or
 yarn start
 ```
 
-3. Follow the Expo CLI instructions to run on your desired platform (iOS/Android)
+4. Follow the Expo CLI instructions to run on your desired platform (iOS/Android)
 
 ## Project Structure
 
