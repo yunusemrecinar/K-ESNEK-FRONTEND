@@ -3,13 +3,13 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { StyleSheet, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import HomeScreen from '../screens/main/HomeScreen';
+import ProfileScreen from '../screens/main/ProfileScreen';
 
 const Tab = createBottomTabNavigator();
 
 // Placeholder screens - replace these with your actual screens
 const SearchScreen = () => <View />;
 const MessagesScreen = () => <View />;
-const ProfileScreen = () => <View />;
 
 const BottomTabNavigator = () => {
   return (
@@ -26,10 +26,8 @@ const BottomTabNavigator = () => {
         name="Home"
         component={HomeScreen}
         options={{
-          tabBarIcon: ({ color, focused }) => (
-            <View style={focused ? styles.activeIconContainer : null}>
-              <MaterialCommunityIcons name="home" size={24} color={color} />
-            </View>
+          tabBarIcon: ({ color }) => (
+            <MaterialCommunityIcons name="home" size={24} color={color} />
           ),
         }}
       />
