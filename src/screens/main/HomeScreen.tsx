@@ -18,22 +18,27 @@ const CARD_WIDTH = (width - 60) / 2;
 type CategoryCardProps = {
   title: string;
   services: number;
-  icon: string;
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  backgroundColor: string;
   onPress: () => void;
 };
 
-const CategoryCard = ({ title, services, icon, onPress }: CategoryCardProps) => (
-  <TouchableOpacity style={styles.card} onPress={onPress}>
-    <View style={styles.cardImageContainer}>
-      <MaterialCommunityIcons name={icon} size={40} color="#6C63FF" />
+const CategoryCard = ({ title, services, icon, backgroundColor, onPress }: CategoryCardProps) => (
+  <TouchableOpacity style={[styles.card, { backgroundColor }]} onPress={onPress}>
+    <View style={styles.iconContainer}>
+      <View style={[styles.cardImageContainer, { backgroundColor: 'rgba(255, 255, 255, 0.9)' }]}>
+        <MaterialCommunityIcons name={icon} size={40} color="#6C63FF" />
+      </View>
     </View>
     <View style={styles.cardContent}>
-      <Text variant="titleMedium" style={styles.cardTitle}>
-        {title}
-      </Text>
-      <Text variant="bodySmall" style={styles.cardServices}>
-        {services} Services
-      </Text>
+      <View style={styles.cardContentInner}>
+        <Text variant="titleMedium" style={styles.cardTitle}>
+          {title}
+        </Text>
+        <Text variant="bodySmall" style={styles.cardServices}>
+          {services} Services
+        </Text>
+      </View>
     </View>
   </TouchableOpacity>
 );
@@ -42,42 +47,54 @@ const HomeScreen = () => {
   const [searchQuery, setSearchQuery] = React.useState('');
   const navigation = useNavigation();
 
-  const popularCategories = [
+  const popularCategories: Array<{
+    id: string;
+    title: string;
+    services: number;
+    icon: keyof typeof MaterialCommunityIcons.glyphMap;
+    backgroundColor: string;
+  }> = [
     {
       id: '1',
       title: 'Pet sitter',
       services: 32,
       icon: 'dog',
+      backgroundColor: '#FFE8E8', // Light red
     },
     {
       id: '2',
       title: 'Photographer',
       services: 28,
       icon: 'camera',
+      backgroundColor: '#E8F4FF', // Light blue
     },
     {
       id: '3',
       title: 'Designer',
       services: 45,
       icon: 'palette',
+      backgroundColor: '#F0E8FF', // Light purple
     },
     {
       id: '4',
       title: 'Developer',
       services: 52,
       icon: 'laptop',
+      backgroundColor: '#E8FFE8', // Light green
     },
     {
       id: '5',
       title: 'Writer',
       services: 38,
       icon: 'pencil',
+      backgroundColor: '#FFF3E8', // Light orange
     },
     {
       id: '6',
       title: 'Translator',
       services: 24,
       icon: 'translate',
+      backgroundColor: '#E8FFF4', // Light mint
     },
   ];
 
@@ -137,6 +154,7 @@ const HomeScreen = () => {
                 title={category.title}
                 services={category.services}
                 icon={category.icon}
+                backgroundColor={category.backgroundColor}
                 onPress={() => handleCategoryPress(category.id, category.title)}
               />
             ))}
@@ -207,7 +225,6 @@ const styles = StyleSheet.create({
     width: CARD_WIDTH,
     marginBottom: 16,
     borderRadius: 12,
-    backgroundColor: '#fff',
     overflow: 'hidden',
     elevation: 2,
     shadowColor: '#000',
@@ -219,17 +236,23 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     padding: 16,
   },
+  iconContainer: {
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
   cardImageContainer: {
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: '#F8F9FF',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
   },
   cardContent: {
     flex: 1,
+    alignItems: 'flex-end',
+  },
+  cardContentInner: {
+    alignItems: 'flex-start',
   },
   cardTitle: {
     fontWeight: '600',
