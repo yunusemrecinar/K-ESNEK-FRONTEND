@@ -5,11 +5,9 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import HomeScreen from '../screens/main/HomeScreen';
 import ProfileScreen from '../screens/main/ProfileScreen';
 import SearchScreen from '../screens/main/SearchScreen';
+import MessagesScreen from '../screens/main/MessagesScreen';
 
 const Tab = createBottomTabNavigator();
-
-// Placeholder screen - replace with your actual screen
-const MessagesScreen = () => <View />;
 
 const BottomTabNavigator = () => {
   return (
