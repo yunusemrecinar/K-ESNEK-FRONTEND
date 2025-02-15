@@ -4,11 +4,11 @@ import { StyleSheet, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import HomeScreen from '../screens/main/HomeScreen';
 import ProfileScreen from '../screens/main/ProfileScreen';
+import SearchScreen from '../screens/main/SearchScreen';
 
 const Tab = createBottomTabNavigator();
 
-// Placeholder screens - replace these with your actual screens
-const SearchScreen = () => <View />;
+// Placeholder screen - replace with your actual screen
 const MessagesScreen = () => <View />;
 
 const BottomTabNavigator = () => {

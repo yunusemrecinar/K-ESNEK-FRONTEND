@@ -117,7 +117,7 @@ const HomeScreen = () => {
           inputStyle={styles.searchInput}
           icon={() => <MaterialCommunityIcons name="magnify" size={24} color="#666" />}
           right={() => (
-            <MaterialCommunityIcons name="tune-variant" size={24} color="#666" />
+            <MaterialCommunityIcons name="tune-variant" size={24} color="#666" style={styles.filterIcon} />
           )}
         />
 
@@ -260,6 +260,9 @@ const styles = StyleSheet.create({
   },
   cardServices: {
     color: '#666',
+  },
+  filterIcon: {
+    marginRight: 16,
   },
 });
 
