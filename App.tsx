@@ -4,6 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Provider as PaperProvider } from 'react-native-paper';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from './src/contexts/AuthContext';
+import { AccountTypeProvider } from './src/contexts/AccountTypeContext';
 
 // Import screens (will be created later)
 import AuthNavigator from './src/navigation/AuthNavigator';
@@ -14,16 +15,18 @@ const Stack = createNativeStackNavigator();
 export default function App() {
   return (
     <AuthProvider>
-      <SafeAreaProvider>
-        <PaperProvider>
-          <NavigationContainer>
-            <Stack.Navigator screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="Auth" component={AuthNavigator} />
-              <Stack.Screen name="Main" component={MainNavigator} />
-            </Stack.Navigator>
-          </NavigationContainer>
-        </PaperProvider>
-      </SafeAreaProvider>
+      <AccountTypeProvider>
+        <SafeAreaProvider>
+          <PaperProvider>
+            <NavigationContainer>
+              <Stack.Navigator screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="Auth" component={AuthNavigator} />
+                <Stack.Screen name="Main" component={MainNavigator} />
+              </Stack.Navigator>
+            </NavigationContainer>
+          </PaperProvider>
+        </SafeAreaProvider>
+      </AccountTypeProvider>
     </AuthProvider>
   );
 } 
