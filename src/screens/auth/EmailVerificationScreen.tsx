@@ -35,6 +35,7 @@ const ProgressDots: React.FC<{ currentStep: number }> = ({ currentStep }) => {
 
 const EmailVerificationScreen = ({ navigation, route }: Props) => {
   const [code, setCode] = useState(['', '', '', '', '', '']);
+  const [isVerified, setIsVerified] = useState(false);
   const inputRefs = useRef<RNTextInput[]>([]);
 
   const handleCodeChange = (text: string, index: number) => {
@@ -57,15 +58,45 @@ const EmailVerificationScreen = ({ navigation, route }: Props) => {
 
   const handleVerify = () => {
     const verificationCode = code.join('');
-    // Here you would typically verify the code with your API
-    if (verificationCode.length === VERIFICATION_CODE_LENGTH) {
-      navigation.navigate('AccountType');
-    }
+    // Simulate verification success
+    setIsVerified(true);
+  };
+
+  const handleContinue = () => {
+    navigation.navigate('AccountType');
   };
 
   const handleResend = () => {
     // Here you would typically call your API to resend the code
   };
+
+  if (isVerified) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <ProgressDots currentStep={1} />
+        <View style={styles.content}>
+          <Text variant="headlineMedium" style={styles.title}>
+            Verify your email
+          </Text>
+          <View style={styles.successContainer}>
+            <View style={styles.checkmarkCircle}>
+              <Text style={styles.checkmark}>✓</Text>
+            </View>
+            <Text variant="bodyLarge" style={styles.successText}>
+              Your email address was successfully verified.
+            </Text>
+          </View>
+          <Button
+            mode="contained"
+            onPress={handleContinue}
+            style={styles.button}
+          >
+            Continue
+          </Button>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -177,6 +208,29 @@ const styles = StyleSheet.create({
   },
   progressDotFilled: {
     backgroundColor: '#6C63FF',
+  },
+  successContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 40,
+  },
+  checkmarkCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#6C63FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  checkmark: {
+    color: '#fff',
+    fontSize: 40,
+  },
+  successText: {
+    textAlign: 'center',
+    color: '#666',
+    marginBottom: 20,
   },
 });
 
