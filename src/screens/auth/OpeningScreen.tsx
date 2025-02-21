@@ -27,7 +27,7 @@ const OpeningScreen = ({ navigation }: Props) => {
     <View style={styles.container}>
       <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
         <Text variant="displayLarge" style={styles.title}>
-          jobfinder
+          Kariyerim{'\n'}Esnek
         </Text>
       </Animated.View>
     </View>
@@ -47,6 +47,8 @@ const styles = StyleSheet.create({
   title: {
     color: '#6C63FF', // Purple color from your design
     fontWeight: 'bold',
+    alignContent: 'center',
+    textAlign: 'center',
   },
 });
 
