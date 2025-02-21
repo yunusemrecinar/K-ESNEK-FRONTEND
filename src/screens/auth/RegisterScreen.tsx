@@ -4,13 +4,31 @@ import { Button, Text, TextInput, ActivityIndicator } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { RootStackParamList } from '../../types/navigation';
+import { AuthStackParamList } from '../../types/navigation';
 import { useAuth } from '../../hooks/useAuth';
 
 const { width } = Dimensions.get('window');
 
+const TOTAL_STEPS = 3;
+
+const ProgressDots: React.FC<{ currentStep: number }> = ({ currentStep }) => {
+  return (
+    <View style={styles.progressDotsContainer}>
+      {Array(TOTAL_STEPS).fill(0).map((_, index) => (
+        <View
+          key={index}
+          style={[
+            styles.progressDot,
+            index <= currentStep ? styles.progressDotFilled : null,
+          ]}
+        />
+      ))}
+    </View>
+  );
+};
+
 type Props = {
-  navigation: NativeStackNavigationProp<RootStackParamList>;
+  navigation: NativeStackNavigationProp<AuthStackParamList>;
 };
 
 const RegisterScreen: React.FC<Props> = ({ navigation }) => {
@@ -56,8 +74,8 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
     setIsLoading(true);
     try {
       await register(fullName, email, password);
-      // Navigate to Home screen after successful registration
-      navigation.replace('Main', { screen: 'Home' });
+      // Navigate to email verification screen
+      navigation.navigate('EmailVerification', { email });
     } catch (err) {
       setError('Registration failed. Please try again.');
       console.error('Registration error:', err);
@@ -82,6 +100,8 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
               },
             ]}
           >
+            <ProgressDots currentStep={0} />
+            
             <View style={styles.header}>
               <MaterialCommunityIcons
                 name="account-plus"
@@ -248,6 +268,22 @@ const styles = StyleSheet.create({
     color: 'red',
     textAlign: 'center',
     marginTop: 8,
+  },
+  progressDotsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: 40,
+    marginTop: 20,
+    gap: 4,
+  },
+  progressDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#E0E0E0',
+  },
+  progressDotFilled: {
+    backgroundColor: '#6C63FF',
   },
 });
 

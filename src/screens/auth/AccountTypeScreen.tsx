@@ -9,6 +9,24 @@ type Props = {
   navigation: NativeStackNavigationProp<any>;
 };
 
+const TOTAL_STEPS = 3;
+
+const ProgressDots: React.FC<{ currentStep: number }> = ({ currentStep }) => {
+  return (
+    <View style={styles.progressDotsContainer}>
+      {Array(TOTAL_STEPS).fill(0).map((_, index) => (
+        <View
+          key={index}
+          style={[
+            styles.progressDot,
+            index <= currentStep ? styles.progressDotFilled : null,
+          ]}
+        />
+      ))}
+    </View>
+  );
+};
+
 const AccountTypeScreen = ({ navigation }: Props) => {
   const handleSelection = (type: 'client' | 'freelancer') => {
     // Here you would typically update the user's profile with their selected type
@@ -17,6 +35,7 @@ const AccountTypeScreen = ({ navigation }: Props) => {
 
   return (
     <SafeAreaView style={styles.container}>
+      <ProgressDots currentStep={2} />
       <View style={styles.content}>
         <Text variant="headlineMedium" style={styles.title}>
           Choose your account type
@@ -109,6 +128,22 @@ const styles = StyleSheet.create({
   optionDescription: {
     textAlign: 'center',
     color: '#666',
+  },
+  progressDotsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: 40,
+    marginTop: 20,
+    gap: 4,
+  },
+  progressDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#E0E0E0',
+  },
+  progressDotFilled: {
+    backgroundColor: '#6C63FF',
   },
 });
 
