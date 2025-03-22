@@ -11,6 +11,7 @@ const { width } = Dimensions.get('window');
 type RootStackParamList = {
   Login: undefined;
   Register: undefined;
+  AccountType: { flow: 'login' | 'register' };
   TermsOfService: undefined;
   PrivacyPolicy: undefined;
 };
@@ -70,7 +71,7 @@ const AuthSelectionScreen: React.FC = () => {
         <View style={styles.buttonContainer}>
           <Button
             mode="contained"
-            onPress={() => navigation.navigate('Login')}
+            onPress={() => navigation.navigate('AccountType', { flow: 'login' })}
             style={[styles.button, styles.loginButton]}
             contentStyle={styles.buttonContent}
             labelStyle={styles.buttonLabel}
@@ -79,7 +80,7 @@ const AuthSelectionScreen: React.FC = () => {
           </Button>
           <Button
             mode="outlined"
-            onPress={() => navigation.navigate('Register')}
+            onPress={() => navigation.navigate('AccountType', { flow: 'register' })}
             style={[styles.button, styles.registerButton]}
             contentStyle={styles.buttonContent}
             labelStyle={[styles.buttonLabel, styles.registerButtonLabel]}

@@ -4,8 +4,10 @@ import { Button, Text, TextInput, ActivityIndicator } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { AuthStackParamList } from '../../types/navigation';
+import { CompositeScreenParamList } from '../../types/navigation';
 import { useAuth } from '../../hooks/useAuth';
+import { AccountType } from '../../contexts/AuthContext';
+import { RegisterEmployeeRequest, RegisterEmployerRequest } from '../../services/api/auth';
 
 const { width } = Dimensions.get('window');
 
@@ -28,21 +30,41 @@ const ProgressDots: React.FC<{ currentStep: number }> = ({ currentStep }) => {
 };
 
 type Props = {
-  navigation: NativeStackNavigationProp<AuthStackParamList>;
+  navigation: NativeStackNavigationProp<CompositeScreenParamList>;
+  route: {
+    params?: {
+      accountType?: AccountType;
+    };
+  };
 };
 
-const RegisterScreen: React.FC<Props> = ({ navigation }) => {
-  const [fullName, setFullName] = useState('');
+const RegisterScreen: React.FC<Props> = ({ navigation, route }) => {
+  // Common fields
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [location, setLocation] = useState('');
+  
+  // Employee specific fields
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  
+  // Employer specific fields
+  const [companyName, setCompanyName] = useState('');
+  const [description, setDescription] = useState('');
+  const [industry, setIndustry] = useState('');
+  const [size, setSize] = useState('');
+  
   const [showPassword, setShowPassword] = useState(false);
   const fadeAnim = new Animated.Value(0);
   const slideAnim = new Animated.Value(50);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const { register } = useAuth();
-
+  const { registerEmployee, registerEmployer, error: authError } = useAuth();
+  
+  const accountType = route.params?.accountType || 'employee';
+  
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -65,17 +87,69 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
       return;
     }
 
-    if (!fullName || !email || !password) {
-      setError('Please fill in all fields');
+    // Validate common fields
+    if (!email || !password) {
+      setError('Please fill in all required fields');
+      return;
+    }
+    
+    // Validate account-specific fields
+    if (accountType === 'employee' && (!firstName || !lastName)) {
+      setError('Please fill in your first and last name');
+      return;
+    }
+    
+    if (accountType === 'employer' && (!companyName || !description || !industry)) {
+      setError('Please fill in all company information');
       return;
     }
 
     setError('');
     setIsLoading(true);
+    
     try {
-      await register(fullName, email, password);
-      // Navigate to email verification screen
-      navigation.navigate('EmailVerification', { email });
+      let success = false;
+      
+      if (accountType === 'employee') {
+        const employeeData: RegisterEmployeeRequest = {
+          email,
+          password,
+          firstName,
+          lastName,
+          phoneNumber: phoneNumber || undefined,
+          location: location || undefined,
+          emailNotifications: true,
+          pushNotifications: true,
+          smsNotifications: false
+        };
+        
+        // The user will use email as their userName for login
+        success = await registerEmployee(employeeData);
+      } else {
+        const employerData: RegisterEmployerRequest = {
+          email,
+          password,
+          name: companyName,
+          description,
+          industry,
+          size: size || undefined,
+          phoneNumber: phoneNumber || undefined,
+          location: location || undefined,
+          emailNotifications: true,
+          pushNotifications: true,
+          smsNotifications: false
+        };
+        
+        // The user will use email as their userName for login
+        success = await registerEmployer(employerData);
+      }
+      
+      if (success) {
+        // Navigate to email verification screen
+        navigation.navigate('EmailVerification', { email });
+      } else {
+        setError(authError || 'Registration failed. Please try again.');
+      }
     } catch (err) {
       setError('Registration failed. Please try again.');
       console.error('Registration error:', err);
@@ -83,6 +157,77 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
       setIsLoading(false);
     }
   };
+
+  const renderEmployeeFields = () => (
+    <>
+      <TextInput
+        mode="outlined"
+        label="First Name *"
+        value={firstName}
+        onChangeText={setFirstName}
+        style={styles.input}
+        outlineColor="#6C63FF"
+        activeOutlineColor="#6C63FF"
+      />
+      
+      <TextInput
+        mode="outlined"
+        label="Last Name *"
+        value={lastName}
+        onChangeText={setLastName}
+        style={styles.input}
+        outlineColor="#6C63FF"
+        activeOutlineColor="#6C63FF"
+      />
+    </>
+  );
+  
+  const renderEmployerFields = () => (
+    <>
+      <TextInput
+        mode="outlined"
+        label="Company Name *"
+        value={companyName}
+        onChangeText={setCompanyName}
+        style={styles.input}
+        outlineColor="#6C63FF"
+        activeOutlineColor="#6C63FF"
+      />
+      
+      <TextInput
+        mode="outlined"
+        label="Description *"
+        value={description}
+        onChangeText={setDescription}
+        multiline
+        numberOfLines={3}
+        style={styles.input}
+        outlineColor="#6C63FF"
+        activeOutlineColor="#6C63FF"
+      />
+      
+      <TextInput
+        mode="outlined"
+        label="Industry *"
+        value={industry}
+        onChangeText={setIndustry}
+        style={styles.input}
+        outlineColor="#6C63FF"
+        activeOutlineColor="#6C63FF"
+      />
+      
+      <TextInput
+        mode="outlined"
+        label="Company Size"
+        value={size}
+        onChangeText={setSize}
+        style={styles.input}
+        outlineColor="#6C63FF"
+        activeOutlineColor="#6C63FF"
+        placeholder="e.g. 1-10, 11-50, 51-200, 201+"
+      />
+    </>
+  );
 
   return (
     <SafeAreaView style={styles.container}>
@@ -109,7 +254,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
                 color="#6C63FF"
               />
               <Text variant="headlineMedium" style={styles.title}>
-                Create Account
+                Create {accountType === 'employee' ? 'Employee' : 'Employer'} Account
               </Text>
               <Text variant="bodyLarge" style={styles.subtitle}>
                 Join our community today
@@ -117,19 +262,11 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
             </View>
 
             <View style={styles.form}>
-              <TextInput
-                mode="outlined"
-                label="Full Name"
-                value={fullName}
-                onChangeText={setFullName}
-                style={styles.input}
-                outlineColor="#6C63FF"
-                activeOutlineColor="#6C63FF"
-              />
+              {accountType === 'employee' ? renderEmployeeFields() : renderEmployerFields()}
 
               <TextInput
                 mode="outlined"
-                label="Email"
+                label="Email * (will be used for login)"
                 value={email}
                 onChangeText={setEmail}
                 keyboardType="email-address"
@@ -138,10 +275,32 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
                 outlineColor="#6C63FF"
                 activeOutlineColor="#6C63FF"
               />
+              
+              <TextInput
+                mode="outlined"
+                label="Phone Number"
+                value={phoneNumber}
+                onChangeText={setPhoneNumber}
+                keyboardType="phone-pad"
+                style={styles.input}
+                outlineColor="#6C63FF"
+                activeOutlineColor="#6C63FF"
+              />
+              
+              <TextInput
+                mode="outlined"
+                label="Location"
+                value={location}
+                onChangeText={setLocation}
+                style={styles.input}
+                outlineColor="#6C63FF"
+                activeOutlineColor="#6C63FF"
+                placeholder="City, Country"
+              />
 
               <TextInput
                 mode="outlined"
-                label="Password"
+                label="Password *"
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
@@ -158,7 +317,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
 
               <TextInput
                 mode="outlined"
-                label="Confirm Password"
+                label="Confirm Password *"
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
                 secureTextEntry={!showPassword}
@@ -195,7 +354,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
           Already have an account?{' '}
           <Text
             style={styles.link}
-            onPress={() => navigation.navigate('Login')}
+            onPress={() => navigation.navigate('Login', { accountType })}
           >
             Log in
           </Text>

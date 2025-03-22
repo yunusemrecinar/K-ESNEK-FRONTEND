@@ -3,23 +3,33 @@ import { View, StyleSheet, Dimensions, Animated, KeyboardAvoidingView, Platform,
 import { Button, Text, TextInput, ActivityIndicator } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { CommonActions } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { RootStackParamList } from '../../types/navigation';
+import { CompositeScreenParamList } from '../../types/navigation';
 import { useAuth } from '../../hooks/useAuth';
+import { AccountType } from '../../contexts/AuthContext';
+import { authApi } from '../../services/api/auth';
+import { apiClient } from '../../services/api/client';
 
 const { width } = Dimensions.get('window');
 
 type Props = {
-  navigation: NativeStackNavigationProp<RootStackParamList>;
+  navigation: NativeStackNavigationProp<CompositeScreenParamList>;
+  route: {
+    params?: {
+      accountType?: AccountType;
+    };
+  };
 };
 
-const LoginScreen: React.FC<Props> = ({ navigation }) => {
+const LoginScreen: React.FC<Props> = ({ navigation, route }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const { login } = useAuth();
+  const { login, error: authError } = useAuth();
+  const accountType = route.params?.accountType || 'employee';
   
   const fadeAnim = new Animated.Value(0);
   const slideAnim = new Animated.Value(50);
@@ -49,9 +59,19 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
     setError('');
     setIsLoading(true);
     try {
-      await login(email, password);
-      // Navigate to Home screen after successful login
-      navigation.replace('Main', { screen: 'Home' });
+      const success = await login(email, password, accountType);
+      if (success) {
+        // Navigate to Home screen after successful login
+        // Use CommonActions for navigation between stacks
+        navigation.dispatch(
+          CommonActions.reset({
+            index: 0,
+            routes: [{ name: 'Main' as any }],
+          })
+        );
+      } else {
+        setError(authError || 'Login failed. Please try again.');
+      }
     } catch (err) {
       setError('Login failed. Please try again.');
       console.error('Login error:', err);
@@ -86,14 +106,14 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                 Welcome Back
               </Text>
               <Text variant="bodyLarge" style={styles.subtitle}>
-                Sign in to continue
+                Sign in as {accountType === 'employee' ? 'Employee' : 'Employer'}
               </Text>
             </View>
 
             <View style={styles.form}>
               <TextInput
                 mode="outlined"
-                label="Email"
+                label="Email or Username"
                 value={email}
                 onChangeText={setEmail}
                 keyboardType="email-address"
@@ -148,7 +168,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
           Don't have an account?{' '}
           <Text
             style={styles.link}
-            onPress={() => navigation.navigate('Register')}
+            onPress={() => navigation.navigate('Register', { accountType })}
           >
             Sign up
           </Text>

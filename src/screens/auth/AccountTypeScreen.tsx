@@ -1,13 +1,20 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { Text } from 'react-native-paper';
+import { Text, Button } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useAccountType, AccountType } from '../../contexts/AccountTypeContext';
+import { useAccountType, AccountType as ApplicationAccountType } from '../../contexts/AccountTypeContext';
+import { AccountType as AuthAccountType } from '../../contexts/AuthContext';
+import { CompositeScreenParamList } from '../../types/navigation';
 
 type Props = {
-  navigation: NativeStackNavigationProp<any>;
+  navigation: NativeStackNavigationProp<CompositeScreenParamList>;
+  route: {
+    params?: {
+      flow: 'register' | 'login'
+    };
+  };
 };
 
 const TOTAL_STEPS = 3;
@@ -28,19 +35,32 @@ const ProgressDots: React.FC<{ currentStep: number }> = ({ currentStep }) => {
   );
 };
 
-const AccountTypeScreen = ({ navigation }: Props) => {
+const AccountTypeScreen = ({ navigation, route }: Props) => {
   const { setAccountType } = useAccountType();
-  const [selectedType, setSelectedType] = useState<AccountType>('HIRING');
+  const [selectedType, setSelectedType] = useState<ApplicationAccountType>('HIRING');
+  const flow = route.params?.flow || 'register';
 
-  const handleSelection = async (type: AccountType) => {
+  const handleSelection = (type: ApplicationAccountType) => {
     setSelectedType(type);
-    await setAccountType(type);
-    navigation.replace('Main');
+  };
+  
+  const handleContinue = async () => {
+    await setAccountType(selectedType);
+    
+    // Map application account type to auth account type
+    const authAccountType: AuthAccountType = selectedType === 'HIRING' ? 'employer' : 'employee';
+    
+    // Navigate based on flow parameter
+    if (flow === 'register') {
+      navigation.navigate('Register', { accountType: authAccountType });
+    } else {
+      navigation.navigate('Login', { accountType: authAccountType });
+    }
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <ProgressDots currentStep={2} />
+      <ProgressDots currentStep={0} />
       <View style={styles.content}>
         <Text variant="headlineMedium" style={styles.title}>
           Choose your account type
@@ -107,6 +127,14 @@ const AccountTypeScreen = ({ navigation }: Props) => {
             Find work and grow your career
           </Text>
         </TouchableOpacity>
+        
+        <Button 
+          mode="contained"
+          style={styles.continueButton}
+          onPress={handleContinue}
+        >
+          Continue
+        </Button>
       </View>
     </SafeAreaView>
   );
@@ -184,6 +212,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#E0E0E0',
   },
   progressDotFilled: {
+    backgroundColor: '#6C63FF',
+  },
+  continueButton: {
+    marginTop: 20,
     backgroundColor: '#6C63FF',
   },
 });

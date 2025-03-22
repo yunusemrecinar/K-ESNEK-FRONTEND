@@ -1,22 +1,43 @@
 import { NavigatorScreenParams } from '@react-navigation/native';
+import { AccountType } from '../contexts/AuthContext';
 
+// Main app navigation structure (top level)
 export type RootStackParamList = {
-  Auth: NavigatorScreenParams<AuthStackParamList>;
-  Main: NavigatorScreenParams<MainStackParamList>;
+  Auth: undefined;
+  Main: undefined;
 };
 
+// Auth flow screens
 export type AuthStackParamList = {
-  Login: undefined;
-  Register: undefined;
+  Opening: undefined;
+  Onboarding: undefined;
+  AuthSelection: undefined;
+  Login: {
+    accountType?: AccountType;
+  } | undefined;
+  Register: {
+    accountType?: AccountType;
+  } | undefined;
   ForgotPassword: undefined;
   EmailVerification: {
     email: string;
   };
-  AccountType: undefined;
+  AccountType: {
+    flow: 'login' | 'register';
+  } | undefined;
   TermsOfService: undefined;
   PrivacyPolicy: undefined;
 };
 
+// Main app screens after auth
 export type MainStackParamList = {
   Home: undefined;
-}; 
+  HiringFlow: undefined;
+  WorkingFlow: undefined;
+};
+
+// Composite type that includes all screens for easier type checking
+export type CompositeScreenParamList = 
+  RootStackParamList & 
+  AuthStackParamList & 
+  MainStackParamList; 
