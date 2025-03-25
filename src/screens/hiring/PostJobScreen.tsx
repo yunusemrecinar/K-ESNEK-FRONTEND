@@ -43,6 +43,7 @@ interface FormErrors {
   categoryId?: string;
   minSalary?: string;
   maxSalary?: string;
+  employerId?: string;
 }
 
 // Define menu position type
@@ -67,7 +68,7 @@ const PostJobScreen = () => {
 
   // Form state
   const [jobPost, setJobPost] = useState<Partial<CreateJobRequest>>({
-    employerId: parseInt(user?.id || '0'),
+    employerId: user?.id ? Number(user.id) : undefined,
     title: '',
     description: '',
     categoryId: 0,
@@ -76,8 +77,8 @@ const PostJobScreen = () => {
     city: '',
     country: '',
     currency: 'USD',
-    minSalary: 0,
-    maxSalary: 0,
+    minSalary: undefined,
+    maxSalary: undefined,
     jobRequirements: [],
     jobResponsibilities: [],
     jobBenefits: [],
@@ -132,20 +133,28 @@ const PostJobScreen = () => {
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
     
-    if (!jobPost.title) {
+    if (!jobPost.title?.trim()) {
       newErrors.title = 'Job title is required';
+    } else if (jobPost.title.length < 2) {
+      newErrors.title = 'Job title must be at least 2 characters long';
     }
     
-    if (!jobPost.description) {
+    if (!jobPost.description?.trim()) {
       newErrors.description = 'Job description is required';
+    } else if (jobPost.description.length < 10) {
+      newErrors.description = 'Job description must be at least 10 characters long';
     }
     
     if (!jobPost.categoryId) {
       newErrors.categoryId = 'Category is required';
     }
+
+    if (!jobPost.employerId) {
+      newErrors.employerId = 'Employer ID is required';
+    }
     
-    if (jobPost.minSalary === undefined || jobPost.minSalary < 0) {
-      newErrors.minSalary = 'Minimum salary must be a positive number';
+    if (jobPost.minSalary === undefined || jobPost.minSalary <= 0) {
+      newErrors.minSalary = 'Minimum salary must be greater than zero';
     }
     
     if (jobPost.maxSalary === undefined || jobPost.maxSalary <= 0) {
@@ -155,6 +164,7 @@ const PostJobScreen = () => {
     }
     
     setErrors(newErrors);
+    console.log('newErrors', newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
@@ -239,26 +249,31 @@ const PostJobScreen = () => {
   };
 
   const handleSubmit = async () => {
+    console.log('jobPost', jobPost);
     if (!validateForm()) {
+      Alert.alert('Validation Error', 'Please fix the errors before submitting');
+      return;
+    }
+
+    if (!jobPost.employerId) {
+      Alert.alert('Error', 'Employer ID is required');
       return;
     }
 
     setLoading(true);
     try {
       const response = await jobsApi.createJob(jobPost as CreateJobRequest);
-      setLoading(false);
-      
       if (response.isSuccess) {
-        Alert.alert('Success', 'Job posted successfully!', [
-          { text: 'OK', onPress: () => navigation.goBack() }
-        ]);
+        Alert.alert('Success', 'Job posted successfully');
+        navigation.goBack();
       } else {
-        Alert.alert('Error', response.message || 'Failed to post job');
+        Alert.alert('Error', response.message || 'Failed to create job');
       }
     } catch (error) {
+      console.error('Error creating job:', error);
+      Alert.alert('Error', 'Failed to create job. Please try again.');
+    } finally {
       setLoading(false);
-      console.error('Error posting job:', error);
-      Alert.alert('Error', 'Failed to post job. Please try again.');
     }
   };
 

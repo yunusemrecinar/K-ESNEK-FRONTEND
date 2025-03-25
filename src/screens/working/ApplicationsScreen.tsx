@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import { View, StyleSheet, FlatList, RefreshControl, Dimensions } from 'react-native';
 import { Text, Card, Chip, ActivityIndicator, Button, Searchbar, useTheme } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -50,6 +50,11 @@ const ApplicationsScreen = () => {
       setRefreshing(false);
     }
   }, []);
+
+  // Add useEffect to call fetchApplications on mount
+  useEffect(() => {
+    fetchApplications();
+  }, [fetchApplications]);
 
   // Handle refresh
   const onRefresh = useCallback(() => {
