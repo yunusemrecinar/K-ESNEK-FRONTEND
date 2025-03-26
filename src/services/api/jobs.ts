@@ -24,7 +24,7 @@ export interface JobCategory {
 }
 
 export interface CreateJobRequest {
-  employerId: number;
+  employerId?: number;
   title: string;
   description: string;
   categoryId: number;

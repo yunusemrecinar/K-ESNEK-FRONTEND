@@ -43,7 +43,6 @@ interface FormErrors {
   categoryId?: string;
   minSalary?: string;
   maxSalary?: string;
-  employerId?: string;
 }
 
 // Define menu position type
@@ -68,7 +67,6 @@ const PostJobScreen = () => {
 
   // Form state
   const [jobPost, setJobPost] = useState<Partial<CreateJobRequest>>({
-    employerId: user?.id ? Number(user.id) : undefined,
     title: '',
     description: '',
     categoryId: 0,
@@ -77,8 +75,8 @@ const PostJobScreen = () => {
     city: '',
     country: '',
     currency: 'USD',
-    minSalary: undefined,
-    maxSalary: undefined,
+    minSalary: 0,
+    maxSalary: 0,
     jobRequirements: [],
     jobResponsibilities: [],
     jobBenefits: [],
@@ -145,12 +143,8 @@ const PostJobScreen = () => {
       newErrors.description = 'Job description must be at least 10 characters long';
     }
     
-    if (!jobPost.categoryId) {
+    if (!jobPost.categoryId || jobPost.categoryId <= 0) {
       newErrors.categoryId = 'Category is required';
-    }
-
-    if (!jobPost.employerId) {
-      newErrors.employerId = 'Employer ID is required';
     }
     
     if (jobPost.minSalary === undefined || jobPost.minSalary <= 0) {
@@ -164,7 +158,6 @@ const PostJobScreen = () => {
     }
     
     setErrors(newErrors);
-    console.log('newErrors', newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
@@ -255,23 +248,55 @@ const PostJobScreen = () => {
       return;
     }
 
-    if (!jobPost.employerId) {
-      Alert.alert('Error', 'Employer ID is required');
-      return;
-    }
-
     setLoading(true);
     try {
-      const response = await jobsApi.createJob(jobPost as CreateJobRequest);
+      // Ensure all required properties are properly formatted for the backend
+      const jobRequest: Partial<CreateJobRequest> = {
+        title: jobPost.title,
+        description: jobPost.description,
+        categoryId: jobPost.categoryId,
+        jobLocationType: jobPost.jobLocationType,
+        address: jobPost.address,
+        city: jobPost.city,
+        country: jobPost.country,
+        currency: jobPost.currency,
+        minSalary: jobPost.minSalary || 0,
+        maxSalary: jobPost.maxSalary || 0,
+        jobRequirements: jobPost.jobRequirements || [],
+        jobResponsibilities: jobPost.jobResponsibilities || [],
+        jobBenefits: jobPost.jobBenefits || [],
+        jobSkills: jobPost.jobSkills || [],
+        employmentType: jobPost.employmentType,
+        experienceLevel: jobPost.experienceLevel,
+        educationLevel: jobPost.educationLevel,
+        jobStatus: jobPost.jobStatus,
+        applicationDeadline: jobPost.applicationDeadline
+      };
+
+      console.log('Sending to API:', jobRequest);
+      const response = await jobsApi.createJob(jobRequest as CreateJobRequest);
       if (response.isSuccess) {
         Alert.alert('Success', 'Job posted successfully');
         navigation.goBack();
       } else {
-        Alert.alert('Error', response.message || 'Failed to create job');
+        // Provide more specific error feedback
+        const errorMessage = response.message 
+          ? `Error: ${response.message}` 
+          : 'Failed to create job. Please check your input and try again.';
+        
+        Alert.alert('Error', errorMessage);
       }
     } catch (error) {
       console.error('Error creating job:', error);
-      Alert.alert('Error', 'Failed to create job. Please try again.');
+      
+      // More detailed error handling
+      let errorMessage = 'An unexpected error occurred. Please try again.';
+      
+      if (error instanceof Error) {
+        errorMessage = `Error: ${error.message}`;
+      }
+      
+      Alert.alert('Error', errorMessage);
     } finally {
       setLoading(false);
     }
