@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { apiClient } from '../../services/api/client';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 // Job interface based on backend JobDto
 interface JobRequirement {
@@ -55,9 +56,12 @@ type JobDetailsRouteProp = RouteProp<{
   JobDetails: { jobId: number };
 }, 'JobDetails'>;
 
+// Define navigation type
+type JobNavigationProp = NativeStackNavigationProp<any>;
+
 const JobDetailsScreen = () => {
   const theme = useTheme();
-  const navigation = useNavigation();
+  const navigation = useNavigation<JobNavigationProp>();
   const route = useRoute<JobDetailsRouteProp>();
   const { jobId } = route.params;
   
@@ -92,8 +96,18 @@ const JobDetailsScreen = () => {
   }, [jobId]);
 
   const handleEditJob = () => {
-    // Navigate to job edit screen 
-    // navigation.navigate('EditJob', { jobId });
+    if (job) {
+      // Navigate to PostJob tab with job data for editing
+      // This is a bottom tab, so use the navigation.navigate with params
+      navigation.navigate('HiringTabs', {
+        screen: 'PostJob',
+        params: {
+          jobId: job.id,
+          isEditing: true,
+          jobData: job
+        }
+      });
+    }
   };
 
   if (loading) {

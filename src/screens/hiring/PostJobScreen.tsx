@@ -5,7 +5,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { jobsApi, CreateJobRequest, JobCategory, JobRequirement, JobResponsibility, JobBenefit, JobSkill, categoriesApi } from '../../services/api/jobs';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { AuthContext } from '../../contexts/AuthContext';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp, useFocusEffect } from '@react-navigation/native';
+import axios from 'axios';
 
 const locationTypes = [
   { label: 'Remote', value: 'Remote' },
@@ -51,10 +52,56 @@ interface MenuPosition {
   y: number;
 }
 
+// Define route params type
+type PostJobRouteProp = RouteProp<{
+  PostJob: { 
+    jobId?: number;
+    isEditing?: boolean;
+    jobData?: any;
+  };
+}, 'PostJob'>;
+
 const PostJobScreen = () => {
   const theme = useTheme();
   const { user } = useContext(AuthContext);
   const navigation = useNavigation();
+  const route = useRoute<PostJobRouteProp>();
+  
+  // Check if we're in edit mode
+  const [isEditing, setIsEditing] = useState(route.params?.isEditing || false);
+  const [editJobId, setEditJobId] = useState(route.params?.jobId);
+  const [initialJobData, setInitialJobData] = useState(route.params?.jobData);
+  
+  // This effect will run when the screen comes into focus with new params
+  useFocusEffect(
+    React.useCallback(() => {
+      // Update state when new params are passed
+      if (route.params?.isEditing) {
+        setIsEditing(route.params.isEditing);
+        setEditJobId(route.params.jobId);
+        setInitialJobData(route.params.jobData);
+        
+        // Reset the form if we're coming from an edit operation
+        if (route.params.jobData) {
+          initializeFormWithData(route.params.jobData);
+        }
+        
+        // Clear params after processing to avoid unwanted re-renders
+        // We need to do this in a setTimeout to avoid the infinite loop
+        const timer = setTimeout(() => {
+          // @ts-ignore - TypeScript is being strict about param types
+          navigation.setParams({
+            isEditing: undefined,
+            jobId: undefined,
+            jobData: undefined
+          });
+        }, 100);
+        
+        return () => clearTimeout(timer);
+      }
+    }, [route.params?.jobId]) // Only re-run if the jobId changes
+  );
+  
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState<JobCategory[]>([]);
   const [categoryMenuVisible, setCategoryMenuVisible] = useState(false);
@@ -65,7 +112,7 @@ const PostJobScreen = () => {
   const [errors, setErrors] = useState<FormErrors>({});
   const [showDatePicker, setShowDatePicker] = useState(false);
 
-  // Form state
+  // Initialize form state with default values
   const [jobPost, setJobPost] = useState<Partial<CreateJobRequest>>({
     title: '',
     description: '',
@@ -87,6 +134,45 @@ const PostJobScreen = () => {
     jobStatus: 'Active',
     applicationDeadline: new Date(new Date().setMonth(new Date().getMonth() + 1)),
   });
+  
+  // Function to initialize the form with job data - make it stable with useCallback
+  const initializeFormWithData = React.useCallback((data: any) => {
+    if (!data) return;
+    
+    // Convert date string to Date object if needed
+    const applicationDeadline = data.applicationDeadline 
+      ? new Date(data.applicationDeadline) 
+      : new Date(new Date().setMonth(new Date().getMonth() + 1));
+      
+    setJobPost({
+      title: data.title || '',
+      description: data.description || '',
+      categoryId: data.categoryId || 0,
+      jobLocationType: data.jobLocationType || 'Remote',
+      address: data.address || '',
+      city: data.city || '',
+      country: data.country || '',
+      currency: data.currency || 'USD',
+      minSalary: data.minSalary || 0,
+      maxSalary: data.maxSalary || 0,
+      jobRequirements: data.jobRequirements || [],
+      jobResponsibilities: data.jobResponsibilities || [],
+      jobBenefits: data.jobBenefits || [],
+      jobSkills: data.jobSkills || [],
+      employmentType: data.employmentType || 'FullTime',
+      experienceLevel: data.experienceLevel || 'EntryLevel',
+      educationLevel: data.educationLevel || 'Bachelor',
+      jobStatus: data.jobStatus || 'Active',
+      applicationDeadline,
+    });
+  }, []);
+  
+  // Initialize form if in edit mode with initial data
+  useEffect(() => {
+    if (isEditing && initialJobData) {
+      initializeFormWithData(initialJobData);
+    }
+  }, []);
 
   // Input states for array fields
   const [newRequirement, setNewRequirement] = useState('');
@@ -272,20 +358,109 @@ const PostJobScreen = () => {
         applicationDeadline: jobPost.applicationDeadline
       };
 
-      const response = await jobsApi.createJob(jobRequest as CreateJobRequest);
-      if (response.isSuccess) {
-        Alert.alert('Success', 'Job posted successfully');
-        navigation.goBack();
-      } else {
-        // Provide more specific error feedback
-        const errorMessage = response.message 
-          ? `Error: ${response.message}` 
-          : 'Failed to create job. Please check your input and try again.';
-        
-        Alert.alert('Error', errorMessage);
+      console.log('---- JOB REQUEST DATA ----');
+      console.log('Is Editing:', isEditing);
+      console.log('Job ID:', editJobId);
+      console.log('Request Payload:', JSON.stringify(jobRequest, null, 2));
+      
+      // Check for any null or undefined values that might cause issues
+      const nullKeys = Object.entries(jobRequest)
+        .filter(([key, value]) => value === null)
+        .map(([key]) => key);
+      
+      if (nullKeys.length > 0) {
+        console.warn('Warning: The following fields are null:', nullKeys);
       }
-    } catch (error) {
-      console.error('Error creating job:', error);
+      
+      // Check date format
+      if (jobRequest.applicationDeadline) {
+        console.log('Application Deadline:', jobRequest.applicationDeadline);
+        console.log('Application Deadline ISO String:', jobRequest.applicationDeadline.toISOString());
+      }
+
+      let response;
+      
+      if (isEditing && editJobId) {
+        // Update existing job
+        console.log(`Attempting to update job with ID ${editJobId}`);
+        
+        try {
+          // The backend API requires the ID in the request body as a string
+          // updateJob function will handle this conversion
+          response = await jobsApi.updateJob(editJobId, jobRequest);
+          console.log('API Response:', JSON.stringify(response, null, 2));
+          
+          if (response.isSuccess) {
+            Alert.alert('Success', 'Job updated successfully');
+            navigation.goBack();
+          } else {
+            const errorMessage = response.message 
+              ? `Error: ${response.message}` 
+              : 'Failed to update job. Please check your input and try again.';
+            
+            console.error('Update job failed with message:', response.message);
+            Alert.alert('Error', errorMessage);
+          }
+        } catch (updateError: any) {
+          console.error('Detailed update error:', updateError);
+          
+          if (updateError.response) {
+            console.error('Response data:', JSON.stringify(updateError.response.data, null, 2));
+            console.error('Response status:', updateError.response.status);
+            console.error('Response headers:', JSON.stringify(updateError.response.headers, null, 2));
+          } else if (updateError.request) {
+            console.error('Request was made but no response received:', updateError.request);
+          } else {
+            console.error('Error message:', updateError.message);
+          }
+          
+          // Try to find what's causing the validation error
+          if (updateError.response?.status === 400) {
+            console.log('Possible validation error. Checking request payload again:');
+            console.log('Job ID type:', typeof editJobId);
+            
+            // Try to log more details about the specific data that might be causing issues
+            Object.entries(jobRequest).forEach(([key, value]) => {
+              const type = typeof value;
+              const valueStr = type === 'object' ? 
+                (value instanceof Date ? value.toISOString() : JSON.stringify(value).substring(0, 100)) : 
+                String(value);
+              console.log(`${key}: (${type}) ${valueStr}`);
+            });
+          }
+          
+          throw updateError;
+        }
+      } else {
+        // Create new job
+        console.log('Attempting to create new job');
+        try {
+          response = await jobsApi.createJob(jobRequest as CreateJobRequest);
+          console.log('API Response:', JSON.stringify(response, null, 2));
+          
+          if (response.isSuccess) {
+            Alert.alert('Success', 'Job posted successfully');
+            navigation.goBack();
+          } else {
+            const errorMessage = response.message 
+              ? `Error: ${response.message}` 
+              : 'Failed to create job. Please check your input and try again.';
+            
+            console.error('Create job failed with message:', response.message);
+            Alert.alert('Error', errorMessage);
+          }
+        } catch (createError: any) {
+          console.error('Detailed create error:', createError);
+          if (createError.response) {
+            console.error('Response data:', JSON.stringify(createError.response.data, null, 2));
+            console.error('Response status:', createError.response.status);
+            console.error('Response headers:', createError.response.headers);
+          }
+          throw createError;
+        }
+      }
+    } catch (error: any) {
+      console.error(`Error ${isEditing ? 'updating' : 'creating'} job:`, error);
       
       // More detailed error handling
       let errorMessage = 'An unexpected error occurred. Please try again.';
@@ -326,7 +501,7 @@ const PostJobScreen = () => {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <Text variant="headlineMedium" style={styles.title}>
-          Post a New Job
+          {isEditing ? 'Edit Job' : 'Post a New Job'}
         </Text>
 
         {/* Basic Job Information */}
@@ -634,20 +809,25 @@ const PostJobScreen = () => {
             </Chip>
           ))}
         </View>
-        <View style={styles.addItemContainer}>
+        <View style={styles.rowContainer}>
           <TextInput
-            label="Add Requirement"
+            label="New Requirement"
             value={newRequirement}
             onChangeText={setNewRequirement}
-            style={styles.itemInput}
+            style={[styles.input, { flex: 3 }]}
             mode="outlined"
           />
-          <Button mode="contained" onPress={handleAddRequirement} style={styles.addButton}>
+          <Button
+            mode="contained"
+            onPress={handleAddRequirement}
+            style={styles.addButton}
+          >
             Add
           </Button>
         </View>
 
         {/* Responsibilities */}
+        <Divider style={styles.divider} />
         <Text variant="titleMedium" style={styles.sectionTitle}>
           Job Responsibilities
         </Text>
@@ -662,83 +842,99 @@ const PostJobScreen = () => {
             </Chip>
           ))}
         </View>
-        <View style={styles.addItemContainer}>
+        <View style={styles.rowContainer}>
           <TextInput
-            label="Add Responsibility"
+            label="New Responsibility"
             value={newResponsibility}
             onChangeText={setNewResponsibility}
-            style={styles.itemInput}
+            style={[styles.input, { flex: 3 }]}
             mode="outlined"
           />
-          <Button mode="contained" onPress={handleAddResponsibility} style={styles.addButton}>
+          <Button
+            mode="contained"
+            onPress={handleAddResponsibility}
+            style={styles.addButton}
+          >
             Add
           </Button>
         </View>
 
         {/* Benefits */}
+        <Divider style={styles.divider} />
         <Text variant="titleMedium" style={styles.sectionTitle}>
           Job Benefits
         </Text>
         <View style={styles.chipsContainer}>
-          {jobPost.jobBenefits?.map((ben, index) => (
+          {jobPost.jobBenefits?.map((benefit, index) => (
             <Chip
-              key={`ben-${index}`}
+              key={`benefit-${index}`}
               onClose={() => handleRemoveBenefit(index)}
               style={styles.chip}
             >
-              {ben.benefit}
+              {benefit.benefit}
             </Chip>
           ))}
         </View>
-        <View style={styles.addItemContainer}>
+        <View style={styles.rowContainer}>
           <TextInput
-            label="Add Benefit"
+            label="New Benefit"
             value={newBenefit}
             onChangeText={setNewBenefit}
-            style={styles.itemInput}
+            style={[styles.input, { flex: 3 }]}
             mode="outlined"
           />
-          <Button mode="contained" onPress={handleAddBenefit} style={styles.addButton}>
+          <Button
+            mode="contained"
+            onPress={handleAddBenefit}
+            style={styles.addButton}
+          >
             Add
           </Button>
         </View>
 
         {/* Skills */}
+        <Divider style={styles.divider} />
         <Text variant="titleMedium" style={styles.sectionTitle}>
-          Required Skills
+          Job Skills
         </Text>
         <View style={styles.chipsContainer}>
-          {jobPost.jobSkills?.map((sk, index) => (
+          {jobPost.jobSkills?.map((skill, index) => (
             <Chip
               key={`skill-${index}`}
               onClose={() => handleRemoveSkill(index)}
               style={styles.chip}
             >
-              {sk.skill}
+              {skill.skill}
             </Chip>
           ))}
         </View>
-        <View style={styles.addItemContainer}>
+        <View style={styles.rowContainer}>
           <TextInput
-            label="Add Skill"
+            label="New Skill"
             value={newSkill}
             onChangeText={setNewSkill}
-            style={styles.itemInput}
+            style={[styles.input, { flex: 3 }]}
             mode="outlined"
           />
-          <Button mode="contained" onPress={handleAddSkill} style={styles.addButton}>
+          <Button
+            mode="contained"
+            onPress={handleAddSkill}
+            style={styles.addButton}
+          >
             Add
           </Button>
         </View>
 
-        {/* Submit Button */}
         <Button
           mode="contained"
           onPress={handleSubmit}
           style={styles.submitButton}
           disabled={loading}
         >
-          {loading ? <ActivityIndicator color={theme.colors.onPrimary} /> : 'Post Job'}
+          {loading ? 
+            <ActivityIndicator color="white" size="small" /> : 
+            isEditing ? 'Update Job' : 'Post Job'
+          }
         </Button>
       </ScrollView>
     </SafeAreaView>
@@ -748,77 +944,66 @@ const PostJobScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: 'white',
   },
   scrollContent: {
     padding: 20,
-    paddingBottom: 40,
   },
   title: {
     marginBottom: 20,
-    fontWeight: 'bold',
   },
   input: {
-    marginBottom: 16,
+    marginBottom: 10,
   },
   sectionTitle: {
-    marginBottom: 8,
-    marginTop: 8,
-  },
-  rowContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  halfInput: {
-    width: '48%',
-  },
-  chipsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 8,
-    gap: 8,
-  },
-  chip: {
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  addItemContainer: {
-    flexDirection: 'row',
-    marginBottom: 24,
-    gap: 8,
-  },
-  itemInput: {
-    flex: 1,
-  },
-  addButton: {
-    alignSelf: 'center',
-  },
-  submitButton: {
-    marginTop: 24,
-    paddingVertical: 8,
+    marginTop: 20,
+    marginBottom: 10,
   },
   dropdownContainer: {
-    marginBottom: 16,
     position: 'relative',
     zIndex: 1,
   },
   dropdown: {
     width: '100%',
+    justifyContent: 'space-between',
   },
   menu: {
-    minWidth: 200,
-  },
-  dateButton: {
-    marginBottom: 16,
-  },
-  divider: {
-    marginVertical: 16,
+    width: '100%',
   },
   errorBorder: {
     borderColor: 'red',
-    borderWidth: 1,
+  },
+  rowContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  halfInput: {
+    flex: 1,
+    marginRight: 8,
+  },
+  dateButton: {
+    width: '100%',
+    marginBottom: 10,
+  },
+  divider: {
+    marginVertical: 20,
+  },
+  chipsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 10,
+  },
+  chip: {
+    marginRight: 5,
+    marginBottom: 5,
+  },
+  addButton: {
+    marginLeft: 8,
+  },
+  submitButton: {
+    marginTop: 20,
   },
 });
 
-export default PostJobScreen; 
+export default PostJobScreen;
