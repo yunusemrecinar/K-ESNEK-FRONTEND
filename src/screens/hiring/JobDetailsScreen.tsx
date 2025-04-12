@@ -96,10 +96,6 @@ const JobDetailsScreen = () => {
     // navigation.navigate('EditJob', { jobId });
   };
 
-  const handleViewApplicants = () => {
-    // navigation.navigate('JobApplicants', { jobId });
-  };
-
   if (loading) {
     return (
       <View style={styles.centerContainer}>
@@ -316,14 +312,6 @@ const JobDetailsScreen = () => {
           >
             Edit Job
           </Button>
-          <Button 
-            mode="contained" 
-            icon="account-group" 
-            onPress={handleViewApplicants}
-            style={styles.actionButton}
-          >
-            View Applicants
-          </Button>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -394,7 +382,7 @@ const styles = StyleSheet.create({
   },
   actionButtonsContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     marginVertical: 16,
     gap: 16,
   },
