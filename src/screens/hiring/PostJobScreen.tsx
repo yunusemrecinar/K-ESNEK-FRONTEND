@@ -6,7 +6,6 @@ import { jobsApi, CreateJobRequest, JobCategory, JobRequirement, JobResponsibili
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { AuthContext } from '../../contexts/AuthContext';
 import { useNavigation, useRoute, RouteProp, useFocusEffect } from '@react-navigation/native';
-import axios from 'axios';
 
 const locationTypes = [
   { label: 'Remote', value: 'Remote' },
@@ -358,111 +357,41 @@ const PostJobScreen = () => {
         applicationDeadline: jobPost.applicationDeadline
       };
 
-      console.log('---- JOB REQUEST DATA ----');
-      console.log('Is Editing:', isEditing);
-      console.log('Job ID:', editJobId);
-      console.log('Request Payload:', JSON.stringify(jobRequest, null, 2));
-      
-      // Check for any null or undefined values that might cause issues
-      const nullKeys = Object.entries(jobRequest)
-        .filter(([key, value]) => value === null)
-        .map(([key]) => key);
-      
-      if (nullKeys.length > 0) {
-        console.warn('Warning: The following fields are null:', nullKeys);
-      }
-      
-      // Check date format
-      if (jobRequest.applicationDeadline) {
-        console.log('Application Deadline:', jobRequest.applicationDeadline);
-        console.log('Application Deadline ISO String:', jobRequest.applicationDeadline.toISOString());
-      }
-
       let response;
       
       if (isEditing && editJobId) {
         // Update existing job
-        console.log(`Attempting to update job with ID ${editJobId}`);
+        response = await jobsApi.updateJob(editJobId, jobRequest);
         
-        try {
-          // The backend API requires the ID in the request body as a string
-          // updateJob function will handle this conversion
-          response = await jobsApi.updateJob(editJobId, jobRequest);
-          console.log('API Response:', JSON.stringify(response, null, 2));
+        if (response.isSuccess) {
+          Alert.alert('Success', 'Job updated successfully');
+          navigation.goBack();
+        } else {
+          const errorMessage = response.message 
+            ? `Error: ${response.message}` 
+            : 'Failed to update job. Please check your input and try again.';
           
-          if (response.isSuccess) {
-            Alert.alert('Success', 'Job updated successfully');
-            navigation.goBack();
-          } else {
-            const errorMessage = response.message 
-              ? `Error: ${response.message}` 
-              : 'Failed to update job. Please check your input and try again.';
-            
-            console.error('Update job failed with message:', response.message);
-            Alert.alert('Error', errorMessage);
-          }
-        } catch (updateError: any) {
-          console.error('Detailed update error:', updateError);
-          
-          if (updateError.response) {
-            console.error('Response data:', JSON.stringify(updateError.response.data, null, 2));
-            console.error('Response status:', updateError.response.status);
-            console.error('Response headers:', JSON.stringify(updateError.response.headers, null, 2));
-          } else if (updateError.request) {
-            console.error('Request was made but no response received:', updateError.request);
-          } else {
-            console.error('Error message:', updateError.message);
-          }
-          
-          // Try to find what's causing the validation error
-          if (updateError.response?.status === 400) {
-            console.log('Possible validation error. Checking request payload again:');
-            console.log('Job ID type:', typeof editJobId);
-            
-            // Try to log more details about the specific data that might be causing issues
-            Object.entries(jobRequest).forEach(([key, value]) => {
-              const type = typeof value;
-              const valueStr = type === 'object' ? 
-                (value instanceof Date ? value.toISOString() : JSON.stringify(value).substring(0, 100)) : 
-                String(value);
-              console.log(`${key}: (${type}) ${valueStr}`);
-            });
-          }
-          
-          throw updateError;
+          Alert.alert('Error', errorMessage);
         }
       } else {
         // Create new job
-        console.log('Attempting to create new job');
-        try {
-          response = await jobsApi.createJob(jobRequest as CreateJobRequest);
-          console.log('API Response:', JSON.stringify(response, null, 2));
+        response = await jobsApi.createJob(jobRequest as CreateJobRequest);
+        
+        if (response.isSuccess) {
+          Alert.alert('Success', 'Job posted successfully');
+          navigation.goBack();
+        } else {
+          const errorMessage = response.message 
+            ? `Error: ${response.message}` 
+            : 'Failed to create job. Please check your input and try again.';
           
-          if (response.isSuccess) {
-            Alert.alert('Success', 'Job posted successfully');
-            navigation.goBack();
-          } else {
-            const errorMessage = response.message 
-              ? `Error: ${response.message}` 
-              : 'Failed to create job. Please check your input and try again.';
-            
-            console.error('Create job failed with message:', response.message);
-            Alert.alert('Error', errorMessage);
-          }
-        } catch (createError: any) {
-          console.error('Detailed create error:', createError);
-          if (createError.response) {
-            console.error('Response data:', JSON.stringify(createError.response.data, null, 2));
-            console.error('Response status:', createError.response.status);
-            console.error('Response headers:', createError.response.headers);
-          }
-          throw createError;
+          Alert.alert('Error', errorMessage);
         }
       }
     } catch (error: any) {
       console.error(`Error ${isEditing ? 'updating' : 'creating'} job:`, error);
       
-      // More detailed error handling
+      // Error handling
       let errorMessage = 'An unexpected error occurred. Please try again.';
       
       if (error instanceof Error) {

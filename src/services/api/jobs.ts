@@ -169,26 +169,19 @@ export const jobsApi = {
 
   updateJob: async (id: number, job: Partial<CreateJobRequest>): Promise<ApiResponse<void>> => {
     try {
-      console.log(`[API] Updating job with ID: ${id}`);
-      
       // Create a shallow copy for modifications and include the id in the payload
       const jobData = { 
         ...job,
         id: id.toString() // API requires id as string in the request body
       };
       
-      console.log(`[API] Update payload:`, JSON.stringify(jobData, null, 2));
-      
-      // Check if date needs special handling for the API
+      // Convert date to ISO string if it's a Date object
       if (job.applicationDeadline instanceof Date) {
-        console.log('[API] Converting applicationDeadline Date to ISO string for API');
         // @ts-ignore - We know applicationDeadline is a Date from the condition above
         jobData.applicationDeadline = job.applicationDeadline.toISOString();
       }
       
       const response = await apiClient.instance.patch(`/jobs/${id}`, jobData);
-      
-      console.log(`[API] Update job response:`, JSON.stringify(response.data, null, 2));
       
       // Map backend response format to frontend expected format
       if (response.data && typeof response.data.success === 'boolean') {
@@ -198,7 +191,7 @@ export const jobsApi = {
           isSuccess: response.data.success
         };
       } else {
-        console.error('[API] Unexpected API response format:', response.data);
+        console.error('Unexpected API response format:', response.data);
         return {
           data: undefined,
           message: 'Invalid response format from API',
@@ -206,23 +199,7 @@ export const jobsApi = {
         };
       }
     } catch (error: any) {
-      console.error(`[API] Error updating job with ID ${id}:`, error);
-      
-      // More detailed error logging
-      if (error.response) {
-        // The request was made and the server responded with a status code
-        // that falls out of the range of 2xx
-        console.error('[API] Error response data:', JSON.stringify(error.response.data, null, 2));
-        console.error('[API] Error response status:', error.response.status);
-        console.error('[API] Error response headers:', JSON.stringify(error.response.headers, null, 2));
-      } else if (error.request) {
-        // The request was made but no response was received
-        console.error('[API] Error request:', error.request);
-      } else {
-        // Something happened in setting up the request that triggered an Error
-        console.error('[API] Error message:', error.message);
-      }
-      
+      console.error(`Error updating job with ID ${id}:`, error);
       return {
         data: undefined,
         message: error.response?.data?.message || (error instanceof Error ? error.message : 'Unknown error occurred'),
