@@ -5,6 +5,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { apiClient } from '../../services/api/client';
 import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
+// Define the navigation types
+type HiringStackParamList = {
+  HiringTabs: undefined;
+  JobDetails: { jobId: number };
+  JobApplicants: { jobId: number };
+};
+
+type HiringNavigationProp = NativeStackNavigationProp<HiringStackParamList>;
 
 // Job interface based on backend JobDto
 interface Job {
@@ -40,7 +50,7 @@ interface ApiResponse<T> {
 
 const HiringHomeScreen = () => {
   const theme = useTheme();
-  const navigation = useNavigation();
+  const navigation = useNavigation<HiringNavigationProp>();
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -86,11 +96,11 @@ const HiringHomeScreen = () => {
   };
 
   const handleViewJobDetails = (jobId: number) => {
-    // navigation.navigate('JobDetails', { jobId });
+    navigation.navigate('JobDetails', { jobId });
   };
 
   const handleViewApplicants = (jobId: number) => {
-    // navigation.navigate('JobApplicants', { jobId });
+    navigation.navigate('JobApplicants', { jobId });
   };
 
   const renderJobCard = ({ item }: { item: Job }) => (

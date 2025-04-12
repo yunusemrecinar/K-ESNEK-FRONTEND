@@ -9,6 +9,8 @@ import PostJobScreen from '../screens/hiring/PostJobScreen';
 import ApplicationsScreen from '../screens/hiring/ApplicationsScreen';
 import HiringProfileScreen from '../screens/hiring/HiringProfileScreen';
 import ChatScreen from '../screens/main/ChatScreen';
+import JobDetailsScreen from '../screens/hiring/JobDetailsScreen';
+import JobApplicantsScreen from '../screens/hiring/JobApplicantsScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -52,6 +54,8 @@ const HiringNavigator = () => {
     >
       <Stack.Screen name="HiringTabs" component={HiringTabNavigator} />
       <Stack.Screen name="Chat" component={ChatScreen} />
+      <Stack.Screen name="JobDetails" component={JobDetailsScreen} />
+      <Stack.Screen name="JobApplicants" component={JobApplicantsScreen} />
     </Stack.Navigator>
   );
 };
