@@ -90,7 +90,6 @@ const ChatScreen = () => {
     if (inputMessage.trim().length === 0) return;
     
     // In a real app, this would send the message to a backend
-    console.log('Sending message:', inputMessage);
     setInputMessage('');
     Keyboard.dismiss();
   };

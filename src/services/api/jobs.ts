@@ -82,7 +82,6 @@ export interface ApiResponse<T> {
 export const jobsApi = {
   getAllJobs: async (): Promise<ApiResponse<JobResponse[]>> => {
     try {
-      console.log('Fetching all jobs...');
       const response = await apiClient.instance.get('/jobs');
       
       // Map backend response format to frontend expected format
@@ -112,7 +111,6 @@ export const jobsApi = {
 
   getJobById: async (id: number): Promise<ApiResponse<JobResponse>> => {
     try {
-      console.log(`Fetching job with ID: ${id}`);
       const response = await apiClient.instance.get(`/jobs/${id}`);
       
       // Map backend response format to frontend expected format
@@ -142,7 +140,6 @@ export const jobsApi = {
 
   createJob: async (job: CreateJobRequest): Promise<ApiResponse<number>> => {
     try {
-      console.log('Creating new job:', job);
       const response = await apiClient.instance.post('/jobs', job);
       
       // Map backend response format to frontend expected format
@@ -172,7 +169,6 @@ export const jobsApi = {
 
   updateJob: async (id: number, job: Partial<CreateJobRequest>): Promise<ApiResponse<void>> => {
     try {
-      console.log(`Updating job with ID: ${id}`, job);
       const response = await apiClient.instance.patch(`/jobs/${id}`, job);
       
       // Map backend response format to frontend expected format
@@ -202,7 +198,6 @@ export const jobsApi = {
 
   deleteJob: async (id: number): Promise<ApiResponse<void>> => {
     try {
-      console.log(`Deleting job with ID: ${id}`);
       const response = await apiClient.instance.delete(`/jobs/${id}`);
       
       // Map backend response format to frontend expected format
@@ -235,11 +230,7 @@ export const jobsApi = {
 export const categoriesApi = {
   getAllCategories: async (): Promise<ApiResponse<JobCategory[]>> => {
     try {
-      console.log('Fetching categories...');
-      console.log('Making GET request to /categories');
       const response = await apiClient.instance.get('/categories');
-      
-      console.log('Raw API response:', JSON.stringify(response.data));
       
       // Check if the response has the expected structure
       if (response.data && typeof response.data.success === 'boolean') {
@@ -269,7 +260,6 @@ export const categoriesApi = {
 
   getCategoryById: async (id: number): Promise<ApiResponse<JobCategory>> => {
     try {
-      console.log(`Fetching category with ID: ${id}`);
       const response = await apiClient.instance.get(`/categories/${id}`);
       
       // Map backend response format to frontend expected format
@@ -299,7 +289,6 @@ export const categoriesApi = {
 
   getCategoryWithJobs: async (id: number): Promise<ApiResponse<JobCategory & { jobs: JobResponse[] }>> => {
     try {
-      console.log(`Fetching category with jobs for ID: ${id}`);
       const response = await apiClient.instance.get(`/categories/${id}/jobs`);
       
       // Map backend response format to frontend expected format

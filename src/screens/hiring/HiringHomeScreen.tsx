@@ -53,7 +53,6 @@ const HiringHomeScreen = () => {
       
       const response = await apiClient.instance.get('/jobs');
       
-      console.log(response.data);
       // The API returns an array directly instead of an ApiResponse object
       if (Array.isArray(response.data)) {
         setJobs(response.data);

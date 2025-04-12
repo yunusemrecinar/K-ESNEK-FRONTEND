@@ -242,7 +242,6 @@ const PostJobScreen = () => {
   };
 
   const handleSubmit = async () => {
-    console.log('jobPost', jobPost);
     if (!validateForm()) {
       Alert.alert('Validation Error', 'Please fix the errors before submitting');
       return;
@@ -273,7 +272,6 @@ const PostJobScreen = () => {
         applicationDeadline: jobPost.applicationDeadline
       };
 
-      console.log('Sending to API:', jobRequest);
       const response = await jobsApi.createJob(jobRequest as CreateJobRequest);
       if (response.isSuccess) {
         Alert.alert('Success', 'Job posted successfully');
