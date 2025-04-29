@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, FlatList, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
-import { Text, Card, Button, useTheme, Avatar } from 'react-native-paper';
+import { Text, Card, Button, useTheme, Avatar, IconButton, Divider } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { apiClient } from '../../services/api/client';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -151,13 +151,33 @@ const HiringHomeScreen = () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text variant="headlineMedium" style={styles.title}>
-          My Job Posts
-        </Text>
-        <TouchableOpacity style={styles.notificationButton}>
-          <Ionicons name="notifications-outline" size={24} color={theme.colors.primary} />
-        </TouchableOpacity>
+        <IconButton
+          icon={({ size, color }) => (
+            <MaterialCommunityIcons name="briefcase-outline" size={size} color={theme.colors.primary} />
+          )}
+          size={28}
+          style={styles.iconButton}
+        />
+        <View style={styles.headerActions}>
+          <IconButton
+            icon="plus"
+            size={24}
+            mode="contained"
+            containerColor={theme.colors.primaryContainer}
+            iconColor={theme.colors.primary}
+            style={styles.actionButton}
+            onPress={handleCreateJob}
+          />
+          <IconButton
+            icon="bell-outline"
+            size={24}
+            style={styles.actionButton}
+            onPress={() => {}}
+          />
+        </View>
       </View>
+      
+      <Divider style={styles.divider} />
 
       {error && (
         <View style={styles.errorContainer}>
@@ -176,6 +196,7 @@ const HiringHomeScreen = () => {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
+        ListHeaderComponent={null}
         ListEmptyComponent={
           !loading && !error ? (
             <View style={styles.emptyContainer}>
@@ -183,7 +204,12 @@ const HiringHomeScreen = () => {
               <Text variant="titleMedium" style={styles.emptyText}>
                 No job posts yet
               </Text>
-              <Button mode="contained" style={styles.createButton} onPress={handleCreateJob}>
+              <Button 
+                mode="contained" 
+                style={styles.createButton} 
+                onPress={handleCreateJob}
+                icon="plus"
+              >
                 Create Your First Job Post
               </Button>
             </View>
@@ -203,20 +229,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
   },
-  title: {
-    fontWeight: 'bold',
+  iconButton: {
+    margin: 0,
   },
-  notificationButton: {
-    padding: 8,
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  actionButton: {
+    margin: 0,
+    marginLeft: 8,
+  },
+  divider: {
+    marginVertical: 4,
   },
   listContainer: {
     padding: 16,
   },
   card: {
     marginBottom: 16,
+    elevation: 2,
+    borderRadius: 12,
   },
   description: {
     marginBottom: 12,
@@ -251,6 +287,7 @@ const styles = StyleSheet.create({
   },
   createButton: {
     marginTop: 8,
+    borderRadius: 8,
   },
   centerContainer: {
     flex: 1,
@@ -268,6 +305,7 @@ const styles = StyleSheet.create({
   },
   retryButton: {
     marginTop: 8,
+    borderRadius: 8,
   },
 });
 
