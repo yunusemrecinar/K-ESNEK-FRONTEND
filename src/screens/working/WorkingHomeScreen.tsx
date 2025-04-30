@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -6,6 +6,7 @@ import {
   Image,
   TouchableOpacity,
   Dimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { Text, Searchbar } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -13,6 +14,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MainStackParamList } from '../../navigation/MainNavigator';
+import { JobCategory, categoriesApi } from '../../services/api/jobs';
+import { useFocusEffect } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - 60) / 2;
@@ -25,6 +28,15 @@ type CategoryCardProps = {
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
   backgroundColor: string;
   onPress: () => void;
+};
+
+// UI representation of a category
+type UICategory = {
+  id: string;
+  title: string;
+  services: number;
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  backgroundColor: string;
 };
 
 const CategoryCard = ({ title, services, icon, backgroundColor, onPress }: CategoryCardProps) => (
@@ -47,60 +59,69 @@ const CategoryCard = ({ title, services, icon, backgroundColor, onPress }: Categ
   </TouchableOpacity>
 );
 
+// Icon and background color mapping based on category index
+const getIconForCategory = (index: number): keyof typeof MaterialCommunityIcons.glyphMap => {
+  const icons: (keyof typeof MaterialCommunityIcons.glyphMap)[] = [
+    'dog', 'camera', 'palette', 'laptop', 'pencil', 'translate',
+    'food-variant', 'broom', 'school', 'car', 'flower', 'flash'
+  ];
+  return icons[index % icons.length];
+};
+
+const getBackgroundColorForCategory = (index: number): string => {
+  const colors = [
+    '#FFE8E8', // Light red
+    '#E8F4FF', // Light blue
+    '#F0E8FF', // Light purple
+    '#E8FFE8', // Light green
+    '#FFF3E8', // Light orange
+    '#E8FFF4', // Light mint
+  ];
+  return colors[index % colors.length];
+};
+
 const WorkingHomeScreen = () => {
-  const [searchQuery, setSearchQuery] = React.useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [categories, setCategories] = useState<UICategory[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const navigation = useNavigation<WorkingNavigationProp>();
 
-  const popularCategories: Array<{
-    id: string;
-    title: string;
-    services: number;
-    icon: keyof typeof MaterialCommunityIcons.glyphMap;
-    backgroundColor: string;
-  }> = [
-    {
-      id: '1',
-      title: 'Pet sitter',
-      services: 32,
-      icon: 'dog',
-      backgroundColor: '#FFE8E8', // Light red
-    },
-    {
-      id: '2',
-      title: 'Photographer',
-      services: 28,
-      icon: 'camera',
-      backgroundColor: '#E8F4FF', // Light blue
-    },
-    {
-      id: '3',
-      title: 'Designer',
-      services: 45,
-      icon: 'palette',
-      backgroundColor: '#F0E8FF', // Light purple
-    },
-    {
-      id: '4',
-      title: 'Developer',
-      services: 52,
-      icon: 'laptop',
-      backgroundColor: '#E8FFE8', // Light green
-    },
-    {
-      id: '5',
-      title: 'Writer',
-      services: 38,
-      icon: 'pencil',
-      backgroundColor: '#FFF3E8', // Light orange
-    },
-    {
-      id: '6',
-      title: 'Translator',
-      services: 24,
-      icon: 'translate',
-      backgroundColor: '#E8FFF4', // Light mint
-    },
-  ];
+  // Fetch categories when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      const fetchCategories = async () => {
+        setLoading(true);
+        setError(null);
+        try {
+          const response = await categoriesApi.getAllCategories();
+          
+          if (response.isSuccess && response.data) {
+            // Transform backend categories to UI categories and take only the first 6
+            const uiCategories = response.data
+              .slice(0, 6) // Only show first 6 categories as popular
+              .map((category, index) => ({
+                id: category.id.toString(),
+                title: category.name,
+                services: Math.floor(Math.random() * 50) + 10, // Placeholder for services count
+                icon: getIconForCategory(index),
+                backgroundColor: getBackgroundColorForCategory(index),
+              }));
+            setCategories(uiCategories);
+          } else {
+            setError(response.message || 'Failed to fetch categories');
+          }
+        } catch (err) {
+          setError('An error occurred while fetching categories');
+          console.error('Error fetching categories:', err);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      fetchCategories();
+    }, [])
+  );
 
   const handleCategoryPress = (categoryId: string, title: string) => {
     navigation.navigate('Category', {
@@ -164,18 +185,28 @@ const WorkingHomeScreen = () => {
             </TouchableOpacity>
           </View>
 
-          <View style={styles.categoriesGrid}>
-            {popularCategories.map((category) => (
-              <CategoryCard
-                key={category.id}
-                title={category.title}
-                services={category.services}
-                icon={category.icon}
-                backgroundColor={category.backgroundColor}
-                onPress={() => handleCategoryPress(category.id, category.title)}
-              />
-            ))}
-          </View>
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#6C63FF" />
+            </View>
+          ) : error ? (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          ) : (
+            <View style={styles.categoriesGrid}>
+              {categories.map((category) => (
+                <CategoryCard
+                  key={category.id}
+                  title={category.title}
+                  services={category.services}
+                  icon={category.icon}
+                  backgroundColor={category.backgroundColor}
+                  onPress={() => handleCategoryPress(category.id, category.title)}
+                />
+              ))}
+            </View>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -298,6 +329,22 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8F9FF',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  loadingContainer: {
+    height: 200,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorContainer: {
+    padding: 16,
+    backgroundColor: '#FFF0F0',
+    borderRadius: 12,
+    alignItems: 'center',
+    marginVertical: 10,
+  },
+  errorText: {
+    color: '#FF6B6B',
+    fontWeight: '500',
   },
 });
 

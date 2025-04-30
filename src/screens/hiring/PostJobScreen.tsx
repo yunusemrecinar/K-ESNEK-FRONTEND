@@ -415,11 +415,21 @@ const PostJobScreen = () => {
   ) => {
     if (ref.current) {
       ref.current.measureInWindow((x: number, y: number, width: number, height: number) => {
+        const windowHeight = Dimensions.get('window').height;
         const windowWidth = Dimensions.get('window').width;
+        
+        // Calculate screen constraints
+        const spaceBelow = windowHeight - (y + height);
+        const menuHeight = 300; // Estimated height of the menu
+        
+        // If there's not enough space below, position the menu above the button
+        const yPos = (spaceBelow < menuHeight) && (y > menuHeight) 
+          ? y - menuHeight 
+          : y + height;
         
         setMenuPosition({ 
           x: x, 
-          y: y + height 
+          y: yPos
         });
         setMenuVisible(true);
       });
@@ -478,20 +488,23 @@ const PostJobScreen = () => {
           <Menu
             visible={categoryMenuVisible}
             onDismiss={() => setCategoryMenuVisible(false)}
-            anchor={categoryMenuPosition}
+            anchor={{ x: categoryMenuPosition.x, y: categoryMenuPosition.y }}
             style={styles.menu}
+            contentStyle={styles.menuContent}
           >
-            {categories.map((category) => (
-              <Menu.Item
-                key={category.id}
-                onPress={() => {
-                  setJobPost({ ...jobPost, categoryId: category.id });
-                  setCategoryMenuVisible(false);
-                  if (errors.categoryId) setErrors({ ...errors, categoryId: undefined });
-                }}
-                title={category.name}
-              />
-            ))}
+            <ScrollView style={styles.menuScrollView}>
+              {categories.map((category) => (
+                <Menu.Item
+                  key={category.id}
+                  onPress={() => {
+                    setJobPost({ ...jobPost, categoryId: category.id });
+                    setCategoryMenuVisible(false);
+                    if (errors.categoryId) setErrors({ ...errors, categoryId: undefined });
+                  }}
+                  title={category.name}
+                />
+              ))}
+            </ScrollView>
           </Menu>
         </View>
         {errors.categoryId && <HelperText type="error">{errors.categoryId}</HelperText>}
@@ -512,19 +525,22 @@ const PostJobScreen = () => {
           <Menu
             visible={locationTypeMenuVisible}
             onDismiss={() => setLocationTypeMenuVisible(false)}
-            anchor={locationMenuPosition}
+            anchor={{ x: locationMenuPosition.x, y: locationMenuPosition.y }}
             style={styles.menu}
+            contentStyle={styles.menuContent}
           >
-            {locationTypes.map((type) => (
-              <Menu.Item
-                key={type.value}
-                onPress={() => {
-                  setJobPost({ ...jobPost, jobLocationType: type.value });
-                  setLocationTypeMenuVisible(false);
-                }}
-                title={type.label}
-              />
-            ))}
+            <ScrollView style={styles.menuScrollView}>
+              {locationTypes.map((type) => (
+                <Menu.Item
+                  key={type.value}
+                  onPress={() => {
+                    setJobPost({ ...jobPost, jobLocationType: type.value });
+                    setLocationTypeMenuVisible(false);
+                  }}
+                  title={type.label}
+                />
+              ))}
+            </ScrollView>
           </Menu>
         </View>
 
@@ -616,19 +632,22 @@ const PostJobScreen = () => {
           <Menu
             visible={employmentTypeMenuVisible}
             onDismiss={() => setEmploymentTypeMenuVisible(false)}
-            anchor={employmentMenuPosition}
+            anchor={{ x: employmentMenuPosition.x, y: employmentMenuPosition.y }}
             style={styles.menu}
+            contentStyle={styles.menuContent}
           >
-            {employmentTypes.map((type) => (
-              <Menu.Item
-                key={type.value}
-                onPress={() => {
-                  setJobPost({ ...jobPost, employmentType: type.value });
-                  setEmploymentTypeMenuVisible(false);
-                }}
-                title={type.label}
-              />
-            ))}
+            <ScrollView style={styles.menuScrollView}>
+              {employmentTypes.map((type) => (
+                <Menu.Item
+                  key={type.value}
+                  onPress={() => {
+                    setJobPost({ ...jobPost, employmentType: type.value });
+                    setEmploymentTypeMenuVisible(false);
+                  }}
+                  title={type.label}
+                />
+              ))}
+            </ScrollView>
           </Menu>
         </View>
 
@@ -650,19 +669,22 @@ const PostJobScreen = () => {
               <Menu
                 visible={experienceLevelMenuVisible}
                 onDismiss={() => setExperienceLevelMenuVisible(false)}
-                anchor={experienceMenuPosition}
+                anchor={{ x: experienceMenuPosition.x, y: experienceMenuPosition.y }}
                 style={styles.menu}
+                contentStyle={styles.menuContent}
               >
-                {experienceLevels.map((level) => (
-                  <Menu.Item
-                    key={level.value}
-                    onPress={() => {
-                      setJobPost({ ...jobPost, experienceLevel: level.value });
-                      setExperienceLevelMenuVisible(false);
-                    }}
-                    title={level.label}
-                  />
-                ))}
+                <ScrollView style={styles.menuScrollView}>
+                  {experienceLevels.map((level) => (
+                    <Menu.Item
+                      key={level.value}
+                      onPress={() => {
+                        setJobPost({ ...jobPost, experienceLevel: level.value });
+                        setExperienceLevelMenuVisible(false);
+                      }}
+                      title={level.label}
+                    />
+                  ))}
+                </ScrollView>
               </Menu>
             </View>
           </View>
@@ -683,19 +705,22 @@ const PostJobScreen = () => {
               <Menu
                 visible={educationLevelMenuVisible}
                 onDismiss={() => setEducationLevelMenuVisible(false)}
-                anchor={educationMenuPosition}
+                anchor={{ x: educationMenuPosition.x, y: educationMenuPosition.y }}
                 style={styles.menu}
+                contentStyle={styles.menuContent}
               >
-                {educationLevels.map((level) => (
-                  <Menu.Item
-                    key={level.value}
-                    onPress={() => {
-                      setJobPost({ ...jobPost, educationLevel: level.value });
-                      setEducationLevelMenuVisible(false);
-                    }}
-                    title={level.label}
-                  />
-                ))}
+                <ScrollView style={styles.menuScrollView}>
+                  {educationLevels.map((level) => (
+                    <Menu.Item
+                      key={level.value}
+                      onPress={() => {
+                        setJobPost({ ...jobPost, educationLevel: level.value });
+                        setEducationLevelMenuVisible(false);
+                      }}
+                      title={level.label}
+                    />
+                  ))}
+                </ScrollView>
               </Menu>
             </View>
           </View>
@@ -897,7 +922,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   menu: {
-    width: '100%',
+    width: 300,
+    maxWidth: '95%',
+  },
+  menuContent: {
+    maxHeight: 250,
+    padding: 0,
+  },
+  menuScrollView: {
+    maxHeight: 250,
   },
   errorBorder: {
     borderColor: 'red',

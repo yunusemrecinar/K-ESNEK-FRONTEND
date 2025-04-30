@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { 
   View, 
   StyleSheet, 
   FlatList, 
   TouchableOpacity, 
-  Dimensions
+  Dimensions,
+  ActivityIndicator
 } from 'react-native';
 import { Text, Searchbar, IconButton } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -12,13 +13,16 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MainStackParamList } from '../../navigation/MainNavigator';
+import { JobCategory, categoriesApi } from '../../services/api/jobs';
+import { useFocusEffect } from '@react-navigation/native';
 
 type NavigationProp = NativeStackNavigationProp<MainStackParamList>;
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - 48) / 2;
 
-type Category = {
+// Map backend category to UI category with additional fields
+type UICategory = {
   id: string;
   title: string;
   services: number;
@@ -26,96 +30,67 @@ type Category = {
   backgroundColor: string;
 };
 
+// Icon and background color mapping based on category index
+const getIconForCategory = (index: number): keyof typeof MaterialCommunityIcons.glyphMap => {
+  const icons: (keyof typeof MaterialCommunityIcons.glyphMap)[] = [
+    'dog', 'camera', 'palette', 'laptop', 'pencil', 'translate',
+    'food-variant', 'broom', 'school', 'car', 'flower', 'flash'
+  ];
+  return icons[index % icons.length];
+};
+
+const getBackgroundColorForCategory = (index: number): string => {
+  const colors = [
+    '#FFE8E8', // Light red
+    '#E8F4FF', // Light blue
+    '#F0E8FF', // Light purple
+    '#E8FFE8', // Light green
+    '#FFF3E8', // Light orange
+    '#E8FFF4', // Light mint
+  ];
+  return colors[index % colors.length];
+};
+
 const AllCategoriesScreen = () => {
   const navigation = useNavigation<NavigationProp>();
-  const [searchQuery, setSearchQuery] = React.useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [categories, setCategories] = useState<UICategory[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const allCategories: Category[] = [
-    {
-      id: '1',
-      title: 'Pet sitter',
-      services: 32,
-      icon: 'dog',
-      backgroundColor: '#FFE8E8', // Light red
-    },
-    {
-      id: '2',
-      title: 'Photographer',
-      services: 28,
-      icon: 'camera',
-      backgroundColor: '#E8F4FF', // Light blue
-    },
-    {
-      id: '3',
-      title: 'Designer',
-      services: 45,
-      icon: 'palette',
-      backgroundColor: '#F0E8FF', // Light purple
-    },
-    {
-      id: '4',
-      title: 'Developer',
-      services: 52,
-      icon: 'laptop',
-      backgroundColor: '#E8FFE8', // Light green
-    },
-    {
-      id: '5',
-      title: 'Writer',
-      services: 38,
-      icon: 'pencil',
-      backgroundColor: '#FFF3E8', // Light orange
-    },
-    {
-      id: '6',
-      title: 'Translator',
-      services: 24,
-      icon: 'translate',
-      backgroundColor: '#E8FFF4', // Light mint
-    },
-    {
-      id: '7',
-      title: 'Cook',
-      services: 30,
-      icon: 'food-variant',
-      backgroundColor: '#FFE8E8', // Light red
-    },
-    {
-      id: '8',
-      title: 'Cleaner',
-      services: 40,
-      icon: 'broom',
-      backgroundColor: '#E8F4FF', // Light blue
-    },
-    {
-      id: '9',
-      title: 'Teacher',
-      services: 35,
-      icon: 'school',
-      backgroundColor: '#F0E8FF', // Light purple
-    },
-    {
-      id: '10',
-      title: 'Driver',
-      services: 28,
-      icon: 'car',
-      backgroundColor: '#E8FFE8', // Light green
-    },
-    {
-      id: '11',
-      title: 'Gardener',
-      services: 22,
-      icon: 'flower',
-      backgroundColor: '#FFF3E8', // Light orange
-    },
-    {
-      id: '12',
-      title: 'Electrician',
-      services: 32,
-      icon: 'flash',
-      backgroundColor: '#E8FFF4', // Light mint
-    },
-  ];
+  // Fetch categories when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      const fetchCategories = async () => {
+        setLoading(true);
+        setError(null);
+        try {
+          const response = await categoriesApi.getAllCategories();
+          
+          if (response.isSuccess && response.data) {
+            // Transform backend categories to UI categories
+            const uiCategories = response.data.map((category, index) => ({
+              id: category.id.toString(),
+              title: category.name,
+              services: Math.floor(Math.random() * 50) + 10, // Placeholder for services count
+              icon: getIconForCategory(index),
+              backgroundColor: getBackgroundColorForCategory(index),
+            }));
+            setCategories(uiCategories);
+          } else {
+            setError(response.message || 'Failed to fetch categories');
+          }
+        } catch (err) {
+          setError('An error occurred while fetching categories');
+          console.error('Error fetching categories:', err);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      fetchCategories();
+    }, [])
+  );
 
   const handleCategoryPress = (categoryId: string, title: string) => {
     navigation.navigate('Category', {
@@ -124,7 +99,7 @@ const AllCategoriesScreen = () => {
     });
   };
 
-  const renderCategoryCard = ({ item }: { item: Category }) => (
+  const renderCategoryCard = ({ item }: { item: UICategory }) => (
     <TouchableOpacity 
       style={[styles.card, { backgroundColor: item.backgroundColor }]}
       onPress={() => handleCategoryPress(item.id, item.title)}
@@ -147,7 +122,7 @@ const AllCategoriesScreen = () => {
     </TouchableOpacity>
   );
 
-  const filteredCategories = allCategories.filter(category => 
+  const filteredCategories = categories.filter(category => 
     category.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -171,14 +146,24 @@ const AllCategoriesScreen = () => {
         inputStyle={styles.searchInput}
       />
 
-      <FlatList
-        data={filteredCategories}
-        renderItem={renderCategoryCard}
-        keyExtractor={(item) => item.id}
-        numColumns={2}
-        contentContainerStyle={styles.listContainer}
-        columnWrapperStyle={styles.columnWrapper}
-      />
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#6C63FF" />
+        </View>
+      ) : error ? (
+        <View style={styles.errorContainer}>
+          <Text variant="bodyLarge" style={styles.errorText}>{error}</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={filteredCategories}
+          renderItem={renderCategoryCard}
+          keyExtractor={(item) => item.id}
+          numColumns={2}
+          contentContainerStyle={styles.listContainer}
+          columnWrapperStyle={styles.columnWrapper}
+        />
+      )}
     </SafeAreaView>
   );
 };
@@ -254,6 +239,21 @@ const styles = StyleSheet.create({
   },
   cardServices: {
     color: '#666',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+  },
+  errorText: {
+    color: '#FF6B6B',
+    textAlign: 'center',
   },
 });
 
