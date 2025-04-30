@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useContext, useRef } from 'react';
-import { View, StyleSheet, ScrollView, Alert, Platform, findNodeHandle, Dimensions } from 'react-native';
-import { Text, TextInput, Button, useTheme, SegmentedButtons, Chip, ActivityIndicator, HelperText, Menu, Divider } from 'react-native-paper';
+import { View, StyleSheet, ScrollView, Alert, Platform, findNodeHandle, Dimensions, StatusBar, KeyboardAvoidingView } from 'react-native';
+import { Text, TextInput, Button, useTheme, SegmentedButtons, Chip, ActivityIndicator, HelperText, Menu, Divider, IconButton } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { jobsApi, CreateJobRequest, JobCategory, JobRequirement, JobResponsibility, JobBenefit, JobSkill, categoriesApi } from '../../services/api/jobs';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { AuthContext } from '../../contexts/AuthContext';
 import { useNavigation, useRoute, RouteProp, useFocusEffect } from '@react-navigation/native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const locationTypes = [
   { label: 'Remote', value: 'Remote' },
@@ -438,459 +440,574 @@ const PostJobScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text variant="headlineMedium" style={styles.title}>
-          {isEditing ? 'Edit Job' : 'Post a New Job'}
-        </Text>
+      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+      >
+        <ScrollView 
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Header */}
+          <View style={styles.headerContainer}>
+            <IconButton
+              icon="arrow-left"
+              size={24}
+              onPress={() => navigation.goBack()}
+              style={styles.backButton}
+            />
+            <Text variant="headlineMedium" style={styles.title}>
+              {isEditing ? 'Edit Job' : 'Post a New Job'}
+            </Text>
+          </View>
 
-        {/* Basic Job Information */}
-        <TextInput
-          label="Job Title"
-          value={jobPost.title}
-          onChangeText={(text) => {
-            setJobPost({ ...jobPost, title: text });
-            if (errors.title) setErrors({ ...errors, title: undefined });
-          }}
-          style={styles.input}
-          mode="outlined"
-          error={!!errors.title}
-        />
-        {errors.title && <HelperText type="error">{errors.title}</HelperText>}
+          {/* Form Sections */}
+          <View style={styles.formCard}>
+            <Text variant="titleLarge" style={styles.formSectionTitle}>
+              Basic Information
+            </Text>
 
-        <TextInput
-          label="Job Description"
-          value={jobPost.description}
-          onChangeText={(text) => {
-            setJobPost({ ...jobPost, description: text });
-            if (errors.description) setErrors({ ...errors, description: undefined });
-          }}
-          style={styles.input}
-          multiline
-          numberOfLines={4}
-          mode="outlined"
-          error={!!errors.description}
-        />
-        {errors.description && <HelperText type="error">{errors.description}</HelperText>}
-
-        {/* Category Selector */}
-        <Text variant="titleMedium" style={styles.sectionTitle}>
-          Job Category
-        </Text>
-        <View style={styles.dropdownContainer}>
-          <Button 
-            ref={categoryButtonRef}
-            mode="outlined" 
-            onPress={() => showMenu(categoryButtonRef, setCategoryMenuVisible, setCategoryMenuPosition)}
-            style={[styles.dropdown, errors.categoryId ? styles.errorBorder : undefined]} 
-          >
-            {selectedCategory?.name || 'Select Category'}
-          </Button>
-          <Menu
-            visible={categoryMenuVisible}
-            onDismiss={() => setCategoryMenuVisible(false)}
-            anchor={{ x: categoryMenuPosition.x, y: categoryMenuPosition.y }}
-            style={styles.menu}
-            contentStyle={styles.menuContent}
-          >
-            <ScrollView style={styles.menuScrollView}>
-              {categories.map((category) => (
-                <Menu.Item
-                  key={category.id}
-                  onPress={() => {
-                    setJobPost({ ...jobPost, categoryId: category.id });
-                    setCategoryMenuVisible(false);
-                    if (errors.categoryId) setErrors({ ...errors, categoryId: undefined });
-                  }}
-                  title={category.name}
-                />
-              ))}
-            </ScrollView>
-          </Menu>
-        </View>
-        {errors.categoryId && <HelperText type="error">{errors.categoryId}</HelperText>}
-
-        {/* Location Type Selector */}
-        <Text variant="titleMedium" style={styles.sectionTitle}>
-          Job Location Type
-        </Text>
-        <View style={styles.dropdownContainer}>
-          <Button 
-            ref={locationButtonRef}
-            mode="outlined" 
-            onPress={() => showMenu(locationButtonRef, setLocationTypeMenuVisible, setLocationMenuPosition)}
-            style={styles.dropdown} 
-          >
-            {jobPost.jobLocationType || 'Select Location Type'}
-          </Button>
-          <Menu
-            visible={locationTypeMenuVisible}
-            onDismiss={() => setLocationTypeMenuVisible(false)}
-            anchor={{ x: locationMenuPosition.x, y: locationMenuPosition.y }}
-            style={styles.menu}
-            contentStyle={styles.menuContent}
-          >
-            <ScrollView style={styles.menuScrollView}>
-              {locationTypes.map((type) => (
-                <Menu.Item
-                  key={type.value}
-                  onPress={() => {
-                    setJobPost({ ...jobPost, jobLocationType: type.value });
-                    setLocationTypeMenuVisible(false);
-                  }}
-                  title={type.label}
-                />
-              ))}
-            </ScrollView>
-          </Menu>
-        </View>
-
-        {/* Location fields */}
-        {(jobPost.jobLocationType === 'On-site' || jobPost.jobLocationType === 'Hybrid') && (
-          <>
+            {/* Basic Job Information */}
             <TextInput
-              label="Address"
-              value={jobPost.address}
-              onChangeText={(text) => setJobPost({ ...jobPost, address: text })}
+              label="Job Title"
+              value={jobPost.title}
+              onChangeText={(text) => {
+                setJobPost({ ...jobPost, title: text });
+                if (errors.title) setErrors({ ...errors, title: undefined });
+              }}
               style={styles.input}
               mode="outlined"
+              error={!!errors.title}
+              outlineColor="#E0E0E0"
+              activeOutlineColor="#5D56E0"
+              left={<TextInput.Icon icon="briefcase-outline" color="#5D56E0" />}
             />
+            {errors.title && <HelperText type="error">{errors.title}</HelperText>}
+
+            <TextInput
+              label="Job Description"
+              value={jobPost.description}
+              onChangeText={(text) => {
+                setJobPost({ ...jobPost, description: text });
+                if (errors.description) setErrors({ ...errors, description: undefined });
+              }}
+              style={styles.input}
+              multiline
+              numberOfLines={4}
+              mode="outlined"
+              error={!!errors.description}
+              outlineColor="#E0E0E0"
+              activeOutlineColor="#5D56E0"
+              left={<TextInput.Icon icon="text-box-outline" color="#5D56E0" />}
+            />
+            {errors.description && <HelperText type="error">{errors.description}</HelperText>}
+          </View>
+
+          {/* Category Selector */}
+          <View style={styles.formCard}>
+            <Text variant="titleLarge" style={styles.formSectionTitle}>
+              Job Category
+            </Text>
+            <View style={styles.dropdownContainer}>
+              <Button 
+                ref={categoryButtonRef}
+                mode="outlined" 
+                onPress={() => showMenu(categoryButtonRef, setCategoryMenuVisible, setCategoryMenuPosition)}
+                style={[styles.dropdown, errors.categoryId ? styles.errorBorder : undefined]} 
+                contentStyle={styles.dropdownContent}
+                icon="folder-outline"
+              >
+                {selectedCategory?.name || 'Select Category'}
+              </Button>
+              <Menu
+                visible={categoryMenuVisible}
+                onDismiss={() => setCategoryMenuVisible(false)}
+                anchor={{ x: categoryMenuPosition.x, y: categoryMenuPosition.y }}
+                style={styles.menu}
+                contentStyle={styles.menuContent}
+              >
+                <ScrollView style={styles.menuScrollView}>
+                  {categories.map((category) => (
+                    <Menu.Item
+                      key={category.id}
+                      onPress={() => {
+                        setJobPost({ ...jobPost, categoryId: category.id });
+                        setCategoryMenuVisible(false);
+                        if (errors.categoryId) setErrors({ ...errors, categoryId: undefined });
+                      }}
+                      title={category.name}
+                    />
+                  ))}
+                </ScrollView>
+              </Menu>
+            </View>
+            {errors.categoryId && <HelperText type="error">{errors.categoryId}</HelperText>}
+          </View>
+
+          {/* Location Section */}
+          <View style={styles.formCard}>
+            <Text variant="titleLarge" style={styles.formSectionTitle}>
+              Location Details
+            </Text>
+            <View style={styles.dropdownContainer}>
+              <Button 
+                ref={locationButtonRef}
+                mode="outlined" 
+                onPress={() => showMenu(locationButtonRef, setLocationTypeMenuVisible, setLocationMenuPosition)}
+                style={styles.dropdown} 
+                contentStyle={styles.dropdownContent}
+                icon="map-marker-outline"
+              >
+                {jobPost.jobLocationType || 'Select Location Type'}
+              </Button>
+              <Menu
+                visible={locationTypeMenuVisible}
+                onDismiss={() => setLocationTypeMenuVisible(false)}
+                anchor={{ x: locationMenuPosition.x, y: locationMenuPosition.y }}
+                style={styles.menu}
+                contentStyle={styles.menuContent}
+              >
+                <ScrollView style={styles.menuScrollView}>
+                  {locationTypes.map((type) => (
+                    <Menu.Item
+                      key={type.value}
+                      onPress={() => {
+                        setJobPost({ ...jobPost, jobLocationType: type.value });
+                        setLocationTypeMenuVisible(false);
+                      }}
+                      title={type.label}
+                    />
+                  ))}
+                </ScrollView>
+              </Menu>
+            </View>
+
+            {/* Location fields */}
+            {(jobPost.jobLocationType === 'On-site' || jobPost.jobLocationType === 'Hybrid') && (
+              <View style={styles.locationFields}>
+                <TextInput
+                  label="Address"
+                  value={jobPost.address}
+                  onChangeText={(text) => setJobPost({ ...jobPost, address: text })}
+                  style={styles.input}
+                  mode="outlined"
+                  outlineColor="#E0E0E0"
+                  activeOutlineColor="#5D56E0"
+                  left={<TextInput.Icon icon="home-outline" color="#5D56E0" />}
+                />
+                <View style={styles.rowContainer}>
+                  <TextInput
+                    label="City"
+                    value={jobPost.city}
+                    onChangeText={(text) => setJobPost({ ...jobPost, city: text })}
+                    style={[styles.input, styles.halfInput]}
+                    mode="outlined"
+                    outlineColor="#E0E0E0"
+                    activeOutlineColor="#5D56E0"
+                    left={<TextInput.Icon icon="city" color="#5D56E0" />}
+                  />
+                  <TextInput
+                    label="Country"
+                    value={jobPost.country}
+                    onChangeText={(text) => setJobPost({ ...jobPost, country: text })}
+                    style={[styles.input, styles.halfInput]}
+                    mode="outlined"
+                    outlineColor="#E0E0E0"
+                    activeOutlineColor="#5D56E0"
+                    left={<TextInput.Icon icon="flag-outline" color="#5D56E0" />}
+                  />
+                </View>
+              </View>
+            )}
+          </View>
+
+          {/* Salary Section */}
+          <View style={styles.formCard}>
+            <Text variant="titleLarge" style={styles.formSectionTitle}>
+              Salary Information
+            </Text>
             <View style={styles.rowContainer}>
               <TextInput
-                label="City"
-                value={jobPost.city}
-                onChangeText={(text) => setJobPost({ ...jobPost, city: text })}
-                style={[styles.input, styles.halfInput]}
+                label="Currency"
+                value={jobPost.currency}
+                onChangeText={(text) => setJobPost({ ...jobPost, currency: text })}
+                style={[styles.input, { flex: 1, marginRight: 8 }]}
                 mode="outlined"
+                placeholder="USD"
+                outlineColor="#E0E0E0"
+                activeOutlineColor="#5D56E0"
+                left={<TextInput.Icon icon="currency-usd" color="#5D56E0" />}
               />
               <TextInput
-                label="Country"
-                value={jobPost.country}
-                onChangeText={(text) => setJobPost({ ...jobPost, country: text })}
-                style={[styles.input, styles.halfInput]}
+                label="Min Salary"
+                value={jobPost.minSalary?.toString()}
+                onChangeText={(text) => {
+                  const value = parseFloat(text) || 0;
+                  setJobPost({ ...jobPost, minSalary: value });
+                  if (errors.minSalary) setErrors({ ...errors, minSalary: undefined });
+                }}
+                style={[styles.input, { flex: 2, marginRight: 8 }]}
                 mode="outlined"
+                keyboardType="numeric"
+                error={!!errors.minSalary}
+                outlineColor="#E0E0E0"
+                activeOutlineColor="#5D56E0"
+              />
+              <TextInput
+                label="Max Salary"
+                value={jobPost.maxSalary?.toString()}
+                onChangeText={(text) => {
+                  const value = parseFloat(text) || 0;
+                  setJobPost({ ...jobPost, maxSalary: value });
+                  if (errors.maxSalary) setErrors({ ...errors, maxSalary: undefined });
+                }}
+                style={[styles.input, { flex: 2 }]}
+                mode="outlined"
+                keyboardType="numeric"
+                error={!!errors.maxSalary}
+                outlineColor="#E0E0E0"
+                activeOutlineColor="#5D56E0"
               />
             </View>
-          </>
-        )}
+            {errors.minSalary && <HelperText type="error">{errors.minSalary}</HelperText>}
+            {errors.maxSalary && <HelperText type="error">{errors.maxSalary}</HelperText>}
+          </View>
 
-        {/* Salary */}
-        <Text variant="titleMedium" style={styles.sectionTitle}>
-          Salary Information
-        </Text>
-        <View style={styles.rowContainer}>
-          <TextInput
-            label="Currency"
-            value={jobPost.currency}
-            onChangeText={(text) => setJobPost({ ...jobPost, currency: text })}
-            style={[styles.input, { flex: 1, marginRight: 8 }]}
-            mode="outlined"
-            placeholder="USD"
-          />
-          <TextInput
-            label="Min Salary"
-            value={jobPost.minSalary?.toString()}
-            onChangeText={(text) => {
-              const value = parseFloat(text) || 0;
-              setJobPost({ ...jobPost, minSalary: value });
-              if (errors.minSalary) setErrors({ ...errors, minSalary: undefined });
-            }}
-            style={[styles.input, { flex: 2, marginRight: 8 }]}
-            mode="outlined"
-            keyboardType="numeric"
-            error={!!errors.minSalary}
-          />
-          <TextInput
-            label="Max Salary"
-            value={jobPost.maxSalary?.toString()}
-            onChangeText={(text) => {
-              const value = parseFloat(text) || 0;
-              setJobPost({ ...jobPost, maxSalary: value });
-              if (errors.maxSalary) setErrors({ ...errors, maxSalary: undefined });
-            }}
-            style={[styles.input, { flex: 2 }]}
-            mode="outlined"
-            keyboardType="numeric"
-            error={!!errors.maxSalary}
-          />
-        </View>
-        {errors.minSalary && <HelperText type="error">{errors.minSalary}</HelperText>}
-        {errors.maxSalary && <HelperText type="error">{errors.maxSalary}</HelperText>}
+          {/* Job Type Section */}
+          <View style={styles.formCard}>
+            <Text variant="titleLarge" style={styles.formSectionTitle}>
+              Job Type & Qualifications
+            </Text>
+            
+            {/* Employment type */}
+            <Text variant="titleMedium" style={styles.subSectionTitle}>
+              Employment Type
+            </Text>
+            <View style={styles.dropdownContainer}>
+              <Button 
+                ref={employmentButtonRef}
+                mode="outlined" 
+                onPress={() => showMenu(employmentButtonRef, setEmploymentTypeMenuVisible, setEmploymentMenuPosition)}
+                style={styles.dropdown} 
+                contentStyle={styles.dropdownContent}
+                icon="account-clock-outline"
+              >
+                {employmentTypes.find(t => t.value === jobPost.employmentType)?.label || 'Select Employment Type'}
+              </Button>
+              <Menu
+                visible={employmentTypeMenuVisible}
+                onDismiss={() => setEmploymentTypeMenuVisible(false)}
+                anchor={{ x: employmentMenuPosition.x, y: employmentMenuPosition.y }}
+                style={styles.menu}
+                contentStyle={styles.menuContent}
+              >
+                <ScrollView style={styles.menuScrollView}>
+                  {employmentTypes.map((type) => (
+                    <Menu.Item
+                      key={type.value}
+                      onPress={() => {
+                        setJobPost({ ...jobPost, employmentType: type.value });
+                        setEmploymentTypeMenuVisible(false);
+                      }}
+                      title={type.label}
+                    />
+                  ))}
+                </ScrollView>
+              </Menu>
+            </View>
 
-        {/* Employment type */}
-        <Text variant="titleMedium" style={styles.sectionTitle}>
-          Employment Type
-        </Text>
-        <View style={styles.dropdownContainer}>
-          <Button 
-            ref={employmentButtonRef}
-            mode="outlined" 
-            onPress={() => showMenu(employmentButtonRef, setEmploymentTypeMenuVisible, setEmploymentMenuPosition)}
-            style={styles.dropdown} 
-          >
-            {employmentTypes.find(t => t.value === jobPost.employmentType)?.label || 'Select Employment Type'}
-          </Button>
-          <Menu
-            visible={employmentTypeMenuVisible}
-            onDismiss={() => setEmploymentTypeMenuVisible(false)}
-            anchor={{ x: employmentMenuPosition.x, y: employmentMenuPosition.y }}
-            style={styles.menu}
-            contentStyle={styles.menuContent}
-          >
-            <ScrollView style={styles.menuScrollView}>
-              {employmentTypes.map((type) => (
-                <Menu.Item
-                  key={type.value}
-                  onPress={() => {
-                    setJobPost({ ...jobPost, employmentType: type.value });
-                    setEmploymentTypeMenuVisible(false);
-                  }}
-                  title={type.label}
-                />
+            {/* Experience and Education */}
+            <View style={styles.rowContainer}>
+              <View style={styles.halfInput}>
+                <Text variant="titleMedium" style={styles.subSectionTitle}>
+                  Experience Level
+                </Text>
+                <View style={styles.dropdownContainer}>
+                  <Button 
+                    ref={experienceButtonRef}
+                    mode="outlined" 
+                    onPress={() => showMenu(experienceButtonRef, setExperienceLevelMenuVisible, setExperienceMenuPosition)}
+                    style={styles.dropdown} 
+                    contentStyle={styles.dropdownContent}
+                    icon="medal-outline"
+                  >
+                    {experienceLevels.find(e => e.value === jobPost.experienceLevel)?.label || 'Select'}
+                  </Button>
+                  <Menu
+                    visible={experienceLevelMenuVisible}
+                    onDismiss={() => setExperienceLevelMenuVisible(false)}
+                    anchor={{ x: experienceMenuPosition.x, y: experienceMenuPosition.y }}
+                    style={styles.menu}
+                    contentStyle={styles.menuContent}
+                  >
+                    <ScrollView style={styles.menuScrollView}>
+                      {experienceLevels.map((level) => (
+                        <Menu.Item
+                          key={level.value}
+                          onPress={() => {
+                            setJobPost({ ...jobPost, experienceLevel: level.value });
+                            setExperienceLevelMenuVisible(false);
+                          }}
+                          title={level.label}
+                        />
+                      ))}
+                    </ScrollView>
+                  </Menu>
+                </View>
+              </View>
+              
+              <View style={styles.halfInput}>
+                <Text variant="titleMedium" style={styles.subSectionTitle}>
+                  Education Level
+                </Text>
+                <View style={styles.dropdownContainer}>
+                  <Button 
+                    ref={educationButtonRef}
+                    mode="outlined" 
+                    onPress={() => showMenu(educationButtonRef, setEducationLevelMenuVisible, setEducationMenuPosition)}
+                    style={styles.dropdown} 
+                    contentStyle={styles.dropdownContent}
+                    icon="school-outline"
+                  >
+                    {educationLevels.find(e => e.value === jobPost.educationLevel)?.label || 'Select'}
+                  </Button>
+                  <Menu
+                    visible={educationLevelMenuVisible}
+                    onDismiss={() => setEducationLevelMenuVisible(false)}
+                    anchor={{ x: educationMenuPosition.x, y: educationMenuPosition.y }}
+                    style={styles.menu}
+                    contentStyle={styles.menuContent}
+                  >
+                    <ScrollView style={styles.menuScrollView}>
+                      {educationLevels.map((level) => (
+                        <Menu.Item
+                          key={level.value}
+                          onPress={() => {
+                            setJobPost({ ...jobPost, educationLevel: level.value });
+                            setEducationLevelMenuVisible(false);
+                          }}
+                          title={level.label}
+                        />
+                      ))}
+                    </ScrollView>
+                  </Menu>
+                </View>
+              </View>
+            </View>
+
+            {/* Application Deadline */}
+            <Text variant="titleMedium" style={styles.subSectionTitle}>
+              Application Deadline
+            </Text>
+            <Button 
+              mode="outlined" 
+              onPress={() => setShowDatePicker(true)}
+              style={styles.dateButton}
+              contentStyle={styles.dropdownContent}
+              icon="calendar-outline"
+            >
+              {jobPost.applicationDeadline ? jobPost.applicationDeadline.toLocaleDateString() : 'Select Date'}
+            </Button>
+            {showDatePicker && (
+              <DateTimePicker
+                value={jobPost.applicationDeadline || new Date()}
+                mode="date"
+                display="default"
+                onChange={onChangeDate}
+                minimumDate={new Date()}
+              />
+            )}
+          </View>
+
+          {/* Requirements Section */}
+          <View style={styles.formCard}>
+            <Text variant="titleLarge" style={styles.formSectionTitle}>
+              Requirements & Qualifications
+            </Text>
+            <View style={styles.chipsContainer}>
+              {jobPost.jobRequirements?.map((req, index) => (
+                <Chip
+                  key={`req-${index}`}
+                  onClose={() => handleRemoveRequirement(index)}
+                  style={styles.chip}
+                  closeIconAccessibilityLabel="Remove requirement"
+                  textStyle={styles.chipText}
+                  elevated
+                >
+                  {req.requirement}
+                </Chip>
               ))}
-            </ScrollView>
-          </Menu>
-        </View>
-
-        {/* Experience and Education */}
-        <View style={styles.rowContainer}>
-          <View style={styles.halfInput}>
-            <Text variant="titleMedium" style={styles.sectionTitle}>
-              Experience Level
-            </Text>
-            <View style={styles.dropdownContainer}>
-              <Button 
-                ref={experienceButtonRef}
-                mode="outlined" 
-                onPress={() => showMenu(experienceButtonRef, setExperienceLevelMenuVisible, setExperienceMenuPosition)}
-                style={styles.dropdown} 
+            </View>
+            <View style={styles.rowContainer}>
+              <TextInput
+                label="New Requirement"
+                value={newRequirement}
+                onChangeText={setNewRequirement}
+                style={[styles.input, { flex: 3 }]}
+                mode="outlined"
+                outlineColor="#E0E0E0"
+                activeOutlineColor="#5D56E0"
+                left={<TextInput.Icon icon="checkbox-marked-circle-outline" color="#5D56E0" />}
+              />
+              <Button
+                mode="contained"
+                onPress={handleAddRequirement}
+                style={styles.addButton}
+                buttonColor="#5D56E0"
               >
-                {experienceLevels.find(e => e.value === jobPost.experienceLevel)?.label || 'Select'}
+                Add
               </Button>
-              <Menu
-                visible={experienceLevelMenuVisible}
-                onDismiss={() => setExperienceLevelMenuVisible(false)}
-                anchor={{ x: experienceMenuPosition.x, y: experienceMenuPosition.y }}
-                style={styles.menu}
-                contentStyle={styles.menuContent}
-              >
-                <ScrollView style={styles.menuScrollView}>
-                  {experienceLevels.map((level) => (
-                    <Menu.Item
-                      key={level.value}
-                      onPress={() => {
-                        setJobPost({ ...jobPost, experienceLevel: level.value });
-                        setExperienceLevelMenuVisible(false);
-                      }}
-                      title={level.label}
-                    />
-                  ))}
-                </ScrollView>
-              </Menu>
             </View>
           </View>
-          
-          <View style={styles.halfInput}>
-            <Text variant="titleMedium" style={styles.sectionTitle}>
-              Education Level
+
+          {/* Responsibilities Section */}
+          <View style={styles.formCard}>
+            <Text variant="titleLarge" style={styles.formSectionTitle}>
+              Job Responsibilities
             </Text>
-            <View style={styles.dropdownContainer}>
-              <Button 
-                ref={educationButtonRef}
-                mode="outlined" 
-                onPress={() => showMenu(educationButtonRef, setEducationLevelMenuVisible, setEducationMenuPosition)}
-                style={styles.dropdown} 
+            <View style={styles.chipsContainer}>
+              {jobPost.jobResponsibilities?.map((resp, index) => (
+                <Chip
+                  key={`resp-${index}`}
+                  onClose={() => handleRemoveResponsibility(index)}
+                  style={styles.chip}
+                  closeIconAccessibilityLabel="Remove responsibility"
+                  textStyle={styles.chipText}
+                  elevated
+                >
+                  {resp.responsibility}
+                </Chip>
+              ))}
+            </View>
+            <View style={styles.rowContainer}>
+              <TextInput
+                label="New Responsibility"
+                value={newResponsibility}
+                onChangeText={setNewResponsibility}
+                style={[styles.input, { flex: 3 }]}
+                mode="outlined"
+                outlineColor="#E0E0E0"
+                activeOutlineColor="#5D56E0"
+                left={<TextInput.Icon icon="format-list-checks" color="#5D56E0" />}
+              />
+              <Button
+                mode="contained"
+                onPress={handleAddResponsibility}
+                style={styles.addButton}
+                buttonColor="#5D56E0"
               >
-                {educationLevels.find(e => e.value === jobPost.educationLevel)?.label || 'Select'}
+                Add
               </Button>
-              <Menu
-                visible={educationLevelMenuVisible}
-                onDismiss={() => setEducationLevelMenuVisible(false)}
-                anchor={{ x: educationMenuPosition.x, y: educationMenuPosition.y }}
-                style={styles.menu}
-                contentStyle={styles.menuContent}
-              >
-                <ScrollView style={styles.menuScrollView}>
-                  {educationLevels.map((level) => (
-                    <Menu.Item
-                      key={level.value}
-                      onPress={() => {
-                        setJobPost({ ...jobPost, educationLevel: level.value });
-                        setEducationLevelMenuVisible(false);
-                      }}
-                      title={level.label}
-                    />
-                  ))}
-                </ScrollView>
-              </Menu>
             </View>
           </View>
-        </View>
 
-        {/* Application Deadline */}
-        <Text variant="titleMedium" style={styles.sectionTitle}>
-          Application Deadline
-        </Text>
-        <Button 
-          mode="outlined" 
-          onPress={() => setShowDatePicker(true)}
-          style={styles.dateButton}
-        >
-          {jobPost.applicationDeadline ? jobPost.applicationDeadline.toLocaleDateString() : 'Select Date'}
-        </Button>
-        {showDatePicker && (
-          <DateTimePicker
-            value={jobPost.applicationDeadline || new Date()}
-            mode="date"
-            display="default"
-            onChange={onChangeDate}
-            minimumDate={new Date()}
-          />
-        )}
+          {/* Benefits Section */}
+          <View style={styles.formCard}>
+            <Text variant="titleLarge" style={styles.formSectionTitle}>
+              Job Benefits
+            </Text>
+            <View style={styles.chipsContainer}>
+              {jobPost.jobBenefits?.map((benefit, index) => (
+                <Chip
+                  key={`benefit-${index}`}
+                  onClose={() => handleRemoveBenefit(index)}
+                  style={styles.chip}
+                  closeIconAccessibilityLabel="Remove benefit"
+                  textStyle={styles.chipText}
+                  elevated
+                >
+                  {benefit.benefit}
+                </Chip>
+              ))}
+            </View>
+            <View style={styles.rowContainer}>
+              <TextInput
+                label="New Benefit"
+                value={newBenefit}
+                onChangeText={setNewBenefit}
+                style={[styles.input, { flex: 3 }]}
+                mode="outlined"
+                outlineColor="#E0E0E0"
+                activeOutlineColor="#5D56E0"
+                left={<TextInput.Icon icon="gift-outline" color="#5D56E0" />}
+              />
+              <Button
+                mode="contained"
+                onPress={handleAddBenefit}
+                style={styles.addButton}
+                buttonColor="#5D56E0"
+              >
+                Add
+              </Button>
+            </View>
+          </View>
 
-        {/* Requirements */}
-        <Divider style={styles.divider} />
-        <Text variant="titleMedium" style={styles.sectionTitle}>
-          Job Requirements
-        </Text>
-        <View style={styles.chipsContainer}>
-          {jobPost.jobRequirements?.map((req, index) => (
-            <Chip
-              key={`req-${index}`}
-              onClose={() => handleRemoveRequirement(index)}
-              style={styles.chip}
-            >
-              {req.requirement}
-            </Chip>
-          ))}
-        </View>
-        <View style={styles.rowContainer}>
-          <TextInput
-            label="New Requirement"
-            value={newRequirement}
-            onChangeText={setNewRequirement}
-            style={[styles.input, { flex: 3 }]}
-            mode="outlined"
-          />
-          <Button
-            mode="contained"
-            onPress={handleAddRequirement}
-            style={styles.addButton}
+          {/* Skills Section */}
+          <View style={styles.formCard}>
+            <Text variant="titleLarge" style={styles.formSectionTitle}>
+              Required Skills
+            </Text>
+            <View style={styles.chipsContainer}>
+              {jobPost.jobSkills?.map((skill, index) => (
+                <Chip
+                  key={`skill-${index}`}
+                  onClose={() => handleRemoveSkill(index)}
+                  style={styles.chip}
+                  closeIconAccessibilityLabel="Remove skill"
+                  textStyle={styles.chipText}
+                  elevated
+                >
+                  {skill.skill}
+                </Chip>
+              ))}
+            </View>
+            <View style={styles.rowContainer}>
+              <TextInput
+                label="New Skill"
+                value={newSkill}
+                onChangeText={setNewSkill}
+                style={[styles.input, { flex: 3 }]}
+                mode="outlined"
+                outlineColor="#E0E0E0"
+                activeOutlineColor="#5D56E0"
+                left={<TextInput.Icon icon="tools" color="#5D56E0" />}
+              />
+              <Button
+                mode="contained"
+                onPress={handleAddSkill}
+                style={styles.addButton}
+                buttonColor="#5D56E0"
+              >
+                Add
+              </Button>
+            </View>
+          </View>
+
+          {/* Submit Button */}
+          <LinearGradient
+            colors={['#6C63FF', '#5D56E0']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.submitButtonContainer}
           >
-            Add
-          </Button>
-        </View>
-
-        {/* Responsibilities */}
-        <Divider style={styles.divider} />
-        <Text variant="titleMedium" style={styles.sectionTitle}>
-          Job Responsibilities
-        </Text>
-        <View style={styles.chipsContainer}>
-          {jobPost.jobResponsibilities?.map((resp, index) => (
-            <Chip
-              key={`resp-${index}`}
-              onClose={() => handleRemoveResponsibility(index)}
-              style={styles.chip}
+            <Button
+              mode="contained"
+              onPress={handleSubmit}
+              style={styles.submitButton}
+              disabled={loading}
+              buttonColor="transparent"
+              contentStyle={{height: 50}}
+              labelStyle={styles.submitButtonLabel}
             >
-              {resp.responsibility}
-            </Chip>
-          ))}
-        </View>
-        <View style={styles.rowContainer}>
-          <TextInput
-            label="New Responsibility"
-            value={newResponsibility}
-            onChangeText={setNewResponsibility}
-            style={[styles.input, { flex: 3 }]}
-            mode="outlined"
-          />
-          <Button
-            mode="contained"
-            onPress={handleAddResponsibility}
-            style={styles.addButton}
-          >
-            Add
-          </Button>
-        </View>
-
-        {/* Benefits */}
-        <Divider style={styles.divider} />
-        <Text variant="titleMedium" style={styles.sectionTitle}>
-          Job Benefits
-        </Text>
-        <View style={styles.chipsContainer}>
-          {jobPost.jobBenefits?.map((benefit, index) => (
-            <Chip
-              key={`benefit-${index}`}
-              onClose={() => handleRemoveBenefit(index)}
-              style={styles.chip}
-            >
-              {benefit.benefit}
-            </Chip>
-          ))}
-        </View>
-        <View style={styles.rowContainer}>
-          <TextInput
-            label="New Benefit"
-            value={newBenefit}
-            onChangeText={setNewBenefit}
-            style={[styles.input, { flex: 3 }]}
-            mode="outlined"
-          />
-          <Button
-            mode="contained"
-            onPress={handleAddBenefit}
-            style={styles.addButton}
-          >
-            Add
-          </Button>
-        </View>
-
-        {/* Skills */}
-        <Divider style={styles.divider} />
-        <Text variant="titleMedium" style={styles.sectionTitle}>
-          Job Skills
-        </Text>
-        <View style={styles.chipsContainer}>
-          {jobPost.jobSkills?.map((skill, index) => (
-            <Chip
-              key={`skill-${index}`}
-              onClose={() => handleRemoveSkill(index)}
-              style={styles.chip}
-            >
-              {skill.skill}
-            </Chip>
-          ))}
-        </View>
-        <View style={styles.rowContainer}>
-          <TextInput
-            label="New Skill"
-            value={newSkill}
-            onChangeText={setNewSkill}
-            style={[styles.input, { flex: 3 }]}
-            mode="outlined"
-          />
-          <Button
-            mode="contained"
-            onPress={handleAddSkill}
-            style={styles.addButton}
-          >
-            Add
-          </Button>
-        </View>
-
-        <Button
-          mode="contained"
-          onPress={handleSubmit}
-          style={styles.submitButton}
-          disabled={loading}
-        >
-          {loading ? 
-            <ActivityIndicator color="white" size="small" /> : 
-            isEditing ? 'Update Job' : 'Post Job'
-          }
-        </Button>
-      </ScrollView>
+              {loading ? 
+                <ActivityIndicator color="white" size="small" /> : 
+                isEditing ? 'Update Job' : 'Post Job'
+              }
+            </Button>
+          </LinearGradient>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
@@ -898,28 +1015,68 @@ const PostJobScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'white',
+    backgroundColor: '#F8F9FF',
   },
   scrollContent: {
-    padding: 20,
+    padding: 16,
+    paddingBottom: 40,
   },
-  title: {
+  headerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 20,
   },
-  input: {
-    marginBottom: 10,
+  backButton: {
+    marginRight: 8,
   },
-  sectionTitle: {
-    marginTop: 20,
-    marginBottom: 10,
+  title: {
+    fontWeight: '700',
+    color: '#5D56E0',
+    flex: 1,
+  },
+  formCard: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: '#6C63FF',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  formSectionTitle: {
+    fontWeight: '700',
+    color: '#5D56E0',
+    marginBottom: 16,
+  },
+  subSectionTitle: {
+    fontWeight: '600',
+    color: '#333',
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  input: {
+    marginBottom: 15,
+    backgroundColor: 'white',
   },
   dropdownContainer: {
     position: 'relative',
     zIndex: 1,
+    marginBottom: 15,
   },
   dropdown: {
     width: '100%',
     justifyContent: 'space-between',
+    borderColor: '#E0E0E0',
+    borderWidth: 1,
+    borderRadius: 4,
+  },
+  dropdownContent: {
+    height: 50,
   },
   menu: {
     width: 300,
@@ -933,7 +1090,7 @@ const styles = StyleSheet.create({
     maxHeight: 250,
   },
   errorBorder: {
-    borderColor: 'red',
+    borderColor: '#FF6B6B',
   },
   rowContainer: {
     flexDirection: 'row',
@@ -947,24 +1104,52 @@ const styles = StyleSheet.create({
   dateButton: {
     width: '100%',
     marginBottom: 10,
+    borderColor: '#E0E0E0',
+    borderWidth: 1,
+    borderRadius: 4,
   },
-  divider: {
-    marginVertical: 20,
+  locationFields: {
+    marginTop: 8,
   },
   chipsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginBottom: 10,
+    marginBottom: 15,
   },
   chip: {
-    marginRight: 5,
-    marginBottom: 5,
+    marginRight: 8,
+    marginBottom: 8,
+    backgroundColor: '#F5F0FF',
+  },
+  chipText: {
+    color: '#5D56E0',
   },
   addButton: {
     marginLeft: 8,
+    backgroundColor: '#5D56E0',
+  },
+  submitButtonContainer: {
+    borderRadius: 30,
+    overflow: 'hidden',
+    marginTop: 16,
+    marginBottom: 30,
+    elevation: 4,
+    shadowColor: '#6C63FF',
+    shadowOffset: {
+      width: 0, 
+      height: 4
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
   },
   submitButton: {
-    marginTop: 20,
+    width: '100%',
+    height: 54,
+    justifyContent: 'center',
+  },
+  submitButtonLabel: {
+    fontSize: 18,
+    fontWeight: '700',
   },
 });
 

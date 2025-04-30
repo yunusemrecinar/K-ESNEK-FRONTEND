@@ -7,8 +7,9 @@ import {
   TouchableOpacity,
   Dimensions,
   ActivityIndicator,
+  StatusBar,
 } from 'react-native';
-import { Text, Searchbar } from 'react-native-paper';
+import { Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -16,9 +17,10 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MainStackParamList } from '../../navigation/MainNavigator';
 import { JobCategory, categoriesApi } from '../../services/api/jobs';
 import { useFocusEffect } from '@react-navigation/native';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const { width } = Dimensions.get('window');
-const CARD_WIDTH = (width - 60) / 2;
+const CARD_WIDTH = (width - 48) / 2;
 
 type WorkingNavigationProp = NativeStackNavigationProp<MainStackParamList>;
 
@@ -40,10 +42,14 @@ type UICategory = {
 };
 
 const CategoryCard = ({ title, services, icon, backgroundColor, onPress }: CategoryCardProps) => (
-  <TouchableOpacity style={[styles.card, { backgroundColor }]} onPress={onPress}>
+  <TouchableOpacity 
+    style={[styles.card, { backgroundColor }]} 
+    onPress={onPress} 
+    activeOpacity={0.7}
+  >
     <View style={styles.iconContainer}>
       <View style={[styles.cardImageContainer, { backgroundColor: 'rgba(255, 255, 255, 0.9)' }]}>
-        <MaterialCommunityIcons name={icon} size={40} color="#6C63FF" />
+        <MaterialCommunityIcons name={icon} size={36} color="#6C63FF" />
       </View>
     </View>
     <View style={styles.cardContent}>
@@ -70,18 +76,17 @@ const getIconForCategory = (index: number): keyof typeof MaterialCommunityIcons.
 
 const getBackgroundColorForCategory = (index: number): string => {
   const colors = [
-    '#FFE8E8', // Light red
-    '#E8F4FF', // Light blue
-    '#F0E8FF', // Light purple
-    '#E8FFE8', // Light green
-    '#FFF3E8', // Light orange
-    '#E8FFF4', // Light mint
+    '#F5F0FF', // Light purple
+    '#E8F6FF', // Light blue
+    '#FFF0E8', // Light orange
+    '#F0FFF0', // Light green
+    '#FFF0F5', // Light pink
+    '#F0FFFF', // Light cyan
   ];
   return colors[index % colors.length];
 };
 
 const WorkingHomeScreen = () => {
-  const [searchQuery, setSearchQuery] = useState('');
   const [categories, setCategories] = useState<UICategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -132,44 +137,41 @@ const WorkingHomeScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Header with Applications button */}
         <View style={styles.header}>
-          <Text variant="headlineSmall" style={styles.headerTitle}>
-            Find Jobs
-          </Text>
+          <View style={{flex: 1}} />
           <TouchableOpacity 
             style={styles.applicationsButton}
             onPress={() => navigation.navigate('Applications')}
+            activeOpacity={0.7}
           >
-            <MaterialCommunityIcons name="briefcase-outline" size={24} color="#6C63FF" />
+            <MaterialCommunityIcons name="briefcase-outline" size={24} color="#5D56E0" />
           </TouchableOpacity>
         </View>
 
-        {/* Search Bar */}
-        <Searchbar
-          placeholder="Find service..."
-          onChangeText={setSearchQuery}
-          value={searchQuery}
-          style={styles.searchBar}
-          inputStyle={styles.searchInput}
-          icon={() => <MaterialCommunityIcons name="magnify" size={24} color="#666" />}
-          right={() => (
-            <MaterialCommunityIcons name="tune-variant" size={24} color="#666" style={styles.filterIcon} />
-          )}
-        />
-
         {/* Featured Section */}
         <View style={styles.featuredSection}>
-          <View style={styles.featuredCard}>
-            <MaterialCommunityIcons name="star" size={40} color="#FFC107" />
+          <LinearGradient
+            colors={['#6C63FF', '#5D56E0']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.featuredCard}
+          >
+            <View style={styles.featuredIconContainer}>
+              <MaterialCommunityIcons name="star" size={40} color="#FFC107" />
+            </View>
             <Text variant="titleLarge" style={styles.featuredTitle}>
               Find Top Rated Freelancers
             </Text>
             <Text variant="bodyMedium" style={styles.featuredDescription}>
               Browse through thousands of skilled professionals
             </Text>
-          </View>
+          </LinearGradient>
         </View>
 
         {/* Popular Categories */}
@@ -178,7 +180,10 @@ const WorkingHomeScreen = () => {
             <Text variant="headlineSmall" style={styles.sectionTitle}>
               Popular categories
             </Text>
-            <TouchableOpacity onPress={() => navigation.navigate('AllCategories')}>
+            <TouchableOpacity 
+              onPress={() => navigation.navigate('AllCategories')}
+              activeOpacity={0.7}
+            >
               <Text variant="bodyMedium" style={styles.seeAll}>
                 See all
               </Text>
@@ -191,6 +196,7 @@ const WorkingHomeScreen = () => {
             </View>
           ) : error ? (
             <View style={styles.errorContainer}>
+              <MaterialCommunityIcons name="alert-circle-outline" size={24} color="#FF6B6B" style={{ marginBottom: 8 }} />
               <Text style={styles.errorText}>{error}</Text>
             </View>
           ) : (
@@ -219,50 +225,63 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   scrollContent: {
-    padding: 16,
-  },
-  searchBar: {
-    marginBottom: 20,
-    elevation: 0,
-    backgroundColor: '#F5F5F5',
-    borderRadius: 30,
-  },
-  searchInput: {
-    fontSize: 16,
+    padding: 20,
+    paddingBottom: 40,
   },
   featuredSection: {
-    marginBottom: 24,
+    marginBottom: 32,
   },
   featuredCard: {
-    backgroundColor: '#F8F9FF',
     padding: 24,
-    borderRadius: 16,
+    borderRadius: 20,
     alignItems: 'center',
+    elevation: 3,
+    shadowColor: '#6C63FF',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+  },
+  featuredIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
   },
   featuredTitle: {
-    marginTop: 12,
-    marginBottom: 8,
-    fontWeight: '600',
+    marginBottom: 12,
+    fontWeight: '700',
     textAlign: 'center',
+    color: '#fff',
+    fontSize: 22,
   },
   featuredDescription: {
-    color: '#666',
+    color: 'rgba(255, 255, 255, 0.9)',
     textAlign: 'center',
+    fontSize: 16,
   },
   categoriesSection: {
+    marginBottom: 20,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 20,
   },
   sectionTitle: {
-    fontWeight: '600',
-    color: '#6C63FF',
+    fontWeight: '700',
+    color: '#5D56E0',
+    fontSize: 20,
   },
   seeAll: {
-    color: '#666',
+    color: '#6C63FF',
+    fontWeight: '600',
   },
   categoriesGrid: {
     flexDirection: 'row',
@@ -271,8 +290,8 @@ const styles = StyleSheet.create({
   },
   card: {
     width: CARD_WIDTH,
-    marginBottom: 16,
-    borderRadius: 12,
+    marginBottom: 20,
+    borderRadius: 16,
     overflow: 'hidden',
     elevation: 2,
     shadowColor: '#000',
@@ -283,31 +302,37 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     padding: 16,
+    minHeight: 140,
   },
   iconContainer: {
     alignItems: 'flex-start',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   cardImageContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(108, 99, 255, 0.1)',
   },
   cardContent: {
     flex: 1,
-    alignItems: 'flex-end',
+    alignItems: 'flex-start',
   },
   cardContentInner: {
     alignItems: 'flex-start',
   },
   cardTitle: {
-    fontWeight: '600',
-    marginBottom: 4,
+    fontWeight: '700',
+    marginBottom: 6,
+    color: '#333',
+    fontSize: 16,
   },
   cardServices: {
     color: '#666',
+    fontSize: 12,
   },
   filterIcon: {
     marginRight: 16,
@@ -316,19 +341,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 24,
   },
   headerTitle: {
-    fontWeight: '600',
-    color: '#6C63FF',
+    fontWeight: '700',
+    color: '#5D56E0',
   },
   applicationsButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: '#F8F9FF',
     justifyContent: 'center',
     alignItems: 'center',
+    elevation: 2,
+    shadowColor: '#6C63FF',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   loadingContainer: {
     height: 200,
@@ -336,15 +369,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   errorContainer: {
-    padding: 16,
-    backgroundColor: '#FFF0F0',
-    borderRadius: 12,
+    padding: 20,
+    backgroundColor: 'rgba(255, 107, 107, 0.1)',
+    borderRadius: 16,
     alignItems: 'center',
     marginVertical: 10,
   },
   errorText: {
     color: '#FF6B6B',
     fontWeight: '500',
+    textAlign: 'center',
   },
 });
 
