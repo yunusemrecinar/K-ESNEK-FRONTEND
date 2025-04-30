@@ -118,25 +118,54 @@ export const authApi = {
   },
 
   registerEmployee: async (data: RegisterEmployeeRequest): Promise<RegisterResponse> => {
-    const response = await apiClient.instance.post<RegisterResponse>('/identity/employee/register', data);
-    
-    if (response.data.token) {
-      // Use the new token storage method
-      await apiClient.storeTokens(response.data.token, response.data.refreshToken);
+    try {
+      // Format the data to match what the backend expects
+      const payload = {
+        ...data,
+        userName: data.email, // Make sure userName is included if the API expects it
+        UserEmail: data.email, // Add UserEmail field required by backend
+        fullName: `${data.firstName} ${data.lastName}`.trim()
+      };
+
+      console.log('Registering employee with payload:', JSON.stringify(payload));
+      
+      const response = await apiClient.instance.post<RegisterResponse>('/identity/employee/register', payload);
+      
+      if (response.data.token) {
+        // Use the new token storage method
+        await apiClient.storeTokens(response.data.token, response.data.refreshToken);
+      }
+      
+      return response.data;
+    } catch (error) {
+      console.error('Employee registration failed:', error);
+      throw error;
     }
-    
-    return response.data;
   },
 
   registerEmployer: async (data: RegisterEmployerRequest): Promise<RegisterResponse> => {
-    const response = await apiClient.instance.post<RegisterResponse>('/identity/employer/register', data);
-    
-    if (response.data.token) {
-      // Use the new token storage method
-      await apiClient.storeTokens(response.data.token, response.data.refreshToken);
+    try {
+      // Format the data to match what the backend expects
+      const payload = {
+        ...data,
+        userName: data.email, // Make sure userName is included if the API expects it
+        UserEmail: data.email, // Add UserEmail field required by backend
+      };
+
+      console.log('Registering employer with payload:', JSON.stringify(payload));
+      
+      const response = await apiClient.instance.post<RegisterResponse>('/identity/employer/register', payload);
+      
+      if (response.data.token) {
+        // Use the new token storage method
+        await apiClient.storeTokens(response.data.token, response.data.refreshToken);
+      }
+      
+      return response.data;
+    } catch (error) {
+      console.error('Employer registration failed:', error);
+      throw error;
     }
-    
-    return response.data;
   },
 
   logout: async (): Promise<void> => {
