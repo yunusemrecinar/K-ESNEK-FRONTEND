@@ -11,6 +11,7 @@ import WorkingProfileScreen from '../screens/working/WorkingProfileScreen';
 import ChatScreen from '../screens/main/ChatScreen';
 import MessagesScreen from '../screens/main/MessagesScreen';
 import CategoryScreen from '../screens/categories/CategoryScreen';
+import AllCategoriesScreen from '../screens/categories/AllCategoriesScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -56,6 +57,7 @@ const WorkingNavigator = () => {
       <Stack.Screen name="Category" component={CategoryScreen} />
       <Stack.Screen name="Chat" component={ChatScreen} />
       <Stack.Screen name="Applications" component={ApplicationsScreen} />
+      <Stack.Screen name="AllCategories" component={AllCategoriesScreen} />
     </Stack.Navigator>
   );
 };

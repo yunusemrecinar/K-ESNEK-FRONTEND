@@ -8,6 +8,7 @@ export type MainStackParamList = {
   Category: { categoryId: string; title: string };
   Chat: { userId: string; userName: string; userImage: string };
   Applications: undefined;
+  AllCategories: undefined;
 };
 
 const Stack = createNativeStackNavigator<MainStackParamList>();

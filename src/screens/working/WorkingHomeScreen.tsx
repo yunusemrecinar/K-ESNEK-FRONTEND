@@ -157,7 +157,7 @@ const WorkingHomeScreen = () => {
             <Text variant="headlineSmall" style={styles.sectionTitle}>
               Popular categories
             </Text>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => navigation.navigate('AllCategories')}>
               <Text variant="bodyMedium" style={styles.seeAll}>
                 See all
               </Text>
