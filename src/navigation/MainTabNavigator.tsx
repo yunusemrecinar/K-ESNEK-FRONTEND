@@ -2,8 +2,10 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { StyleSheet, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import HomeScreen from '../screens/main/HomeScreen';
-import ProfileScreen from '../screens/main/ProfileScreen';
+import WorkingHomeScreen from '../screens/working/WorkingHomeScreen';
+import WorkingProfileScreen from '../screens/working/WorkingProfileScreen';
+import MessagesScreen from '../screens/main/MessagesScreen';
+import JobSearchScreen from '../screens/working/JobSearchScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -20,7 +22,7 @@ const MainTabNavigator = () => {
     >
       <Tab.Screen
         name="Home"
-        component={HomeScreen}
+        component={WorkingHomeScreen}
         options={{
           tabBarIcon: ({ color, focused }) => (
             <View style={styles.iconContainer}>
@@ -36,7 +38,7 @@ const MainTabNavigator = () => {
       />
       <Tab.Screen
         name="Search"
-        component={HomeScreen}
+        component={JobSearchScreen}
         options={{
           tabBarIcon: ({ color, focused }) => (
             <View style={styles.iconContainer}>
@@ -52,7 +54,7 @@ const MainTabNavigator = () => {
       />
       <Tab.Screen
         name="Messages"
-        component={HomeScreen}
+        component={MessagesScreen}
         options={{
           tabBarIcon: ({ color, focused }) => (
             <View style={styles.iconContainer}>
@@ -68,7 +70,7 @@ const MainTabNavigator = () => {
       />
       <Tab.Screen
         name="Profile"
-        component={ProfileScreen}
+        component={WorkingProfileScreen}
         options={{
           tabBarIcon: ({ color, focused }) => (
             <View style={styles.iconContainer}>

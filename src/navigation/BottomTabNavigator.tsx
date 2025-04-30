@@ -2,9 +2,9 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { StyleSheet, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import HomeScreen from '../screens/main/HomeScreen';
-import ProfileScreen from '../screens/main/ProfileScreen';
-import SearchScreen from '../screens/main/SearchScreen';
+import WorkingHomeScreen from '../screens/working/WorkingHomeScreen';
+import WorkingProfileScreen from '../screens/working/WorkingProfileScreen';
+import JobSearchScreen from '../screens/working/JobSearchScreen';
 import MessagesScreen from '../screens/main/MessagesScreen';
 
 const Tab = createBottomTabNavigator();
@@ -22,7 +22,7 @@ const BottomTabNavigator = () => {
     >
       <Tab.Screen
         name="Home"
-        component={HomeScreen}
+        component={WorkingHomeScreen}
         options={{
           tabBarIcon: ({ color }) => (
             <MaterialCommunityIcons name="home" size={24} color={color} />
@@ -31,7 +31,7 @@ const BottomTabNavigator = () => {
       />
       <Tab.Screen
         name="Search"
-        component={SearchScreen}
+        component={JobSearchScreen}
         options={{
           tabBarIcon: ({ color }) => (
             <MaterialCommunityIcons name="magnify" size={24} color={color} />
@@ -49,7 +49,7 @@ const BottomTabNavigator = () => {
       />
       <Tab.Screen
         name="Profile"
-        component={ProfileScreen}
+        component={WorkingProfileScreen}
         options={{
           tabBarIcon: ({ color }) => (
             <MaterialCommunityIcons name="account" size={24} color={color} />

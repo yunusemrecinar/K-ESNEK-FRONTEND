@@ -77,7 +77,11 @@ const MessagesScreen = () => {
   const renderItem = ({ item }: { item: Message }) => (
     <TouchableOpacity
       style={styles.messageItem}
-      onPress={() => navigation.navigate('Chat', { userId: item.user.id })}
+      onPress={() => navigation.navigate('Chat', { 
+        userId: item.user.id,
+        userName: item.user.name,
+        userImage: item.user.avatar
+      })}
     >
       <View style={styles.avatarContainer}>
         <Avatar.Image size={60} source={{ uri: item.user.avatar }} />

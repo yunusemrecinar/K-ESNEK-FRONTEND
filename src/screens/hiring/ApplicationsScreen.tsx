@@ -32,7 +32,7 @@ const ApplicationsScreen = () => {
       case 'pending':
         return theme.colors.primary;
       case 'shortlisted':
-        return theme.colors.success;
+        return '#4CAF50';
       case 'rejected':
         return theme.colors.error;
       default:

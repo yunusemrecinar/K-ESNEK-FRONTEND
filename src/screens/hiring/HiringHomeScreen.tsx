@@ -12,6 +12,7 @@ type HiringStackParamList = {
   HiringTabs: undefined;
   JobDetails: { jobId: number };
   JobApplicants: { jobId: number };
+  Applications: undefined;
 };
 
 type HiringNavigationProp = NativeStackNavigationProp<HiringStackParamList>;
@@ -167,6 +168,12 @@ const HiringHomeScreen = () => {
             iconColor={theme.colors.primary}
             style={styles.actionButton}
             onPress={handleCreateJob}
+          />
+          <IconButton
+            icon="file-document-outline"
+            size={24}
+            style={styles.actionButton}
+            onPress={() => navigation.navigate('Applications')}
           />
           <IconButton
             icon="bell-outline"

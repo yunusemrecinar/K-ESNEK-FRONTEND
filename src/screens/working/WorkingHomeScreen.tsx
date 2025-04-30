@@ -11,9 +11,13 @@ import { Text, Searchbar } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { MainStackParamList } from '../../navigation/MainNavigator';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - 60) / 2;
+
+type WorkingNavigationProp = NativeStackNavigationProp<MainStackParamList>;
 
 type CategoryCardProps = {
   title: string;
@@ -43,9 +47,9 @@ const CategoryCard = ({ title, services, icon, backgroundColor, onPress }: Categ
   </TouchableOpacity>
 );
 
-const HomeScreen = () => {
+const WorkingHomeScreen = () => {
   const [searchQuery, setSearchQuery] = React.useState('');
-  const navigation = useNavigation();
+  const navigation = useNavigation<WorkingNavigationProp>();
 
   const popularCategories: Array<{
     id: string;
@@ -108,6 +112,19 @@ const HomeScreen = () => {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
+        {/* Header with Applications button */}
+        <View style={styles.header}>
+          <Text variant="headlineSmall" style={styles.headerTitle}>
+            Find Jobs
+          </Text>
+          <TouchableOpacity 
+            style={styles.applicationsButton}
+            onPress={() => navigation.navigate('Applications')}
+          >
+            <MaterialCommunityIcons name="briefcase-outline" size={24} color="#6C63FF" />
+          </TouchableOpacity>
+        </View>
+
         {/* Search Bar */}
         <Searchbar
           placeholder="Find service..."
@@ -264,6 +281,24 @@ const styles = StyleSheet.create({
   filterIcon: {
     marginRight: 16,
   },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  headerTitle: {
+    fontWeight: '600',
+    color: '#6C63FF',
+  },
+  applicationsButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F8F9FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
 });
 
-export default HomeScreen; 
+export default WorkingHomeScreen; 
