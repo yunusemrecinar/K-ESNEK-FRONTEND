@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { View, StyleSheet, ScrollView, Linking, TouchableOpacity } from 'react-native';
 import { Text, Card, Chip, Button, Divider, ActivityIndicator, useTheme } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -118,6 +118,16 @@ const JobDetailsScreen: React.FC = () => {
 
     fetchJobDetails();
   }, [jobId]);
+
+  // Handle opening email
+  const handleEmailPress = (email: string) => {
+    Linking.openURL(`mailto:${email}`);
+  };
+
+  // Handle opening phone
+  const handlePhonePress = (phone: string) => {
+    Linking.openURL(`tel:${phone}`);
+  };
 
   if (isLoading) {
     return (
@@ -276,17 +286,27 @@ const JobDetailsScreen: React.FC = () => {
                 <Text variant="titleMedium" style={styles.sectionTitle}>Contact Information</Text>
                 
                 {job.contactEmail && (
-                  <View style={styles.contactItem}>
+                  <TouchableOpacity 
+                    style={styles.contactItem} 
+                    onPress={() => handleEmailPress(job.contactEmail || '')}
+                  >
                     <MaterialCommunityIcons name="email" size={20} color={theme.colors.primary} />
-                    <Text variant="bodyMedium" style={styles.contactText}>{job.contactEmail}</Text>
-                  </View>
+                    <Text variant="bodyMedium" style={[styles.contactText, styles.contactLink]}>
+                      {job.contactEmail}
+                    </Text>
+                  </TouchableOpacity>
                 )}
                 
                 {job.contactPhone && (
-                  <View style={styles.contactItem}>
+                  <TouchableOpacity 
+                    style={styles.contactItem} 
+                    onPress={() => handlePhonePress(job.contactPhone || '')}
+                  >
                     <MaterialCommunityIcons name="phone" size={20} color={theme.colors.primary} />
-                    <Text variant="bodyMedium" style={styles.contactText}>{job.contactPhone}</Text>
-                  </View>
+                    <Text variant="bodyMedium" style={[styles.contactText, styles.contactLink]}>
+                      {job.contactPhone}
+                    </Text>
+                  </TouchableOpacity>
                 )}
               </>
             )}
@@ -304,6 +324,22 @@ const JobDetailsScreen: React.FC = () => {
             }}
           >
             Apply for This Job
+          </Button>
+          <Button 
+            mode="contained" 
+            icon="chat" 
+            style={[styles.actionButton, styles.secondaryButton]} 
+            buttonColor="#4A87C9"
+            onPress={() => {
+              // Navigate to Chat screen with the employer information
+              navigation.navigate('Chat', {
+                userId: job.employerId.toString(),
+                userName: job.companyName || 'Employer',
+                userImage: `https://i.pravatar.cc/150?u=${job.employerId}` // Generate avatar based on employer ID
+              });
+            }}
+          >
+            Contact Employer
           </Button>
           <Button 
             mode="outlined" 
@@ -402,6 +438,9 @@ const styles = StyleSheet.create({
   contactText: {
     opacity: 0.7,
   },
+  contactLink: {
+    textDecorationLine: 'underline',
+  },
   actionsContainer: {
     padding: 16,
     gap: 12,
@@ -410,7 +449,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   primaryButton: {
-    marginBottom: 8,
+    marginBottom: 12,
+  },
+  secondaryButton: {
+    marginBottom: 12,
   },
   loadingContainer: {
     flex: 1,

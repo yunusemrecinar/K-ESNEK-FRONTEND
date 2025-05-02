@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -8,108 +8,164 @@ import {
   Platform,
   TextInput,
   Keyboard,
+  ActivityIndicator,
 } from 'react-native';
 import { Text, Avatar } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { MainStackParamList } from '../../navigation/MainNavigator';
+import { Message, messagingService } from '../../services/api/messagingService';
+import { apiClient } from '../../services/api/client';
+import { format } from 'date-fns';
 
-type RootStackParamList = {
-  Chat: { userId: string };
-};
-
-type ChatScreenRouteProp = RouteProp<RootStackParamList, 'Chat'>;
-type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Chat'>;
-
-interface Message {
-  id: string;
-  text: string;
-  timestamp: string;
-  senderId: string;
-  status: 'sent' | 'delivered' | 'read';
-}
-
-interface User {
-  id: string;
-  name: string;
-  avatar: string;
-  isOnline: boolean;
-}
+type ChatScreenRouteProp = RouteProp<MainStackParamList, 'Chat'>;
+type NavigationProp = NativeStackNavigationProp<MainStackParamList, 'Chat'>;
 
 const ChatScreen = () => {
   const [inputMessage, setInputMessage] = useState('');
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+  const [apiBaseUrl, setApiBaseUrl] = useState<string>('');
+  const [debugInfo, setDebugInfo] = useState<string>('');
+  
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<ChatScreenRouteProp>();
   const flatListRef = useRef<FlatList>(null);
 
-  // Mock current user ID
-  const currentUserId = 'current_user';
+  const { userId, userName, userImage } = route.params;
+  
+  // Fetch messages from API
+  const fetchMessages = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      // Check if userId is valid
+      if (!userId || isNaN(Number(userId))) {
+        console.error('Invalid user ID:', userId);
+        setMessages([]);
+        return;
+      }
+      
+      const response = await messagingService.getConversation(Number(userId));
+      setMessages(response.messages || []);
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+      // Don't show an error for non-existent conversations, just set empty messages
+      setMessages([]);
+    } finally {
+      setIsLoading(false);
+      setRefreshing(false);
+    }
+  }, [userId]);
 
-  // Mock user data (in a real app, this would come from a backend)
-  const chatUser: User = {
-    id: route.params.userId,
-    name: 'Sarah Johnson',
-    avatar: 'https://i.pravatar.cc/150?img=1',
-    isOnline: true,
-  };
-
-  // Mock messages (in a real app, this would come from a backend)
-  const messages: Message[] = [
-    {
-      id: '1',
-      text: 'Hi! I saw your profile and I think you would be perfect for my project.',
-      timestamp: '10:00 AM',
-      senderId: route.params.userId,
-      status: 'read',
-    },
-    {
-      id: '2',
-      text: 'Thanks! I\'d love to hear more about it.',
-      timestamp: '10:02 AM',
-      senderId: currentUserId,
-      status: 'read',
-    },
-    {
-      id: '3',
-      text: 'I need help designing a mobile app for my startup. Are you available for a 3-month contract?',
-      timestamp: '10:03 AM',
-      senderId: route.params.userId,
-      status: 'read',
-    },
-    {
-      id: '4',
-      text: 'Yes, that sounds interesting! When would you like to start?',
-      timestamp: '10:05 AM',
-      senderId: currentUserId,
-      status: 'delivered',
-    },
-  ];
-
-  const handleSend = () => {
+  // Test API connection
+  const testApiConnection = useCallback(async () => {
+    try {
+      // Check auth token
+      const token = await apiClient.getStoredToken();
+      setDebugInfo(prev => prev + `\nAuth token: ${token ? 'Available' : 'NOT FOUND'}`);
+      
+      const result = await messagingService.testConnection();
+      setDebugInfo(prev => prev + `\nAPI test: ${result ? 'SUCCESS' : 'FAILED'}`);
+    } catch (error) {
+      setDebugInfo(prev => prev + `\nAPI test error: ${error}`);
+    }
+  }, []);
+  
+  // Initial fetch
+  useEffect(() => {
+    // Get API base URL for debugging
+    setApiBaseUrl(apiClient.instance.defaults.baseURL || 'Not set');
+    
+    // Test API connection
+    testApiConnection();
+    
+    fetchMessages();
+    
+    // Refresh messages every 10 seconds
+    const interval = setInterval(() => {
+      if (!isSending) {
+        fetchMessages();
+      }
+    }, 10000);
+    
+    return () => clearInterval(interval);
+  }, [fetchMessages, isSending, testApiConnection]);
+  
+  // Handle sending a message
+  const handleSend = async () => {
     if (inputMessage.trim().length === 0) return;
     
-    // In a real app, this would send the message to a backend
-    setInputMessage('');
-    Keyboard.dismiss();
+    try {
+      setIsSending(true);
+      
+      // Create message payload
+      const messageRequest = {
+        receiverId: Number(userId),
+        content: inputMessage.trim()
+      };
+      
+      // Send message to API
+      await messagingService.sendMessage(messageRequest);
+      
+      // Clear input and refresh messages
+      setInputMessage('');
+      Keyboard.dismiss();
+      
+      // Refresh messages to include the new one
+      await fetchMessages();
+      
+      // Scroll to bottom
+      flatListRef.current?.scrollToEnd({ animated: true });
+    } catch (error) {
+      console.error('Error sending message:', error);
+    } finally {
+      setIsSending(false);
+    }
   };
 
+  // Handle refresh
+  const handleRefresh = () => {
+    setRefreshing(true);
+    fetchMessages();
+  };
+
+  // Format timestamp for display
+  const formatMessageTime = (dateString: string) => {
+    const date = new Date(dateString);
+    return format(date, 'h:mm a');
+  };
+
+  // Render a message
   const renderMessage = ({ item }: { item: Message }) => {
-    const isCurrentUser = item.senderId === currentUserId;
+    // Determine if current user is the sender
+    const isCurrentUser = item.senderId.toString() !== userId;
 
     return (
-      <View style={[styles.messageContainer, isCurrentUser ? styles.currentUserMessage : styles.otherUserMessage]}>
-        <View style={[styles.messageBubble, isCurrentUser ? styles.currentUserBubble : styles.otherUserBubble]}>
-          <Text style={[styles.messageText, isCurrentUser ? styles.currentUserText : styles.otherUserText]}>
-            {item.text}
+      <View style={[
+        styles.messageContainer, 
+        isCurrentUser ? styles.currentUserMessage : styles.otherUserMessage
+      ]}>
+        <View style={[
+          styles.messageBubble, 
+          isCurrentUser ? styles.currentUserBubble : styles.otherUserBubble
+        ]}>
+          <Text style={[
+            styles.messageText, 
+            isCurrentUser ? styles.currentUserText : styles.otherUserText
+          ]}>
+            {item.content}
           </Text>
           <View style={styles.messageFooter}>
-            <Text style={styles.timestamp}>{item.timestamp}</Text>
+            <Text style={styles.timestamp}>{formatMessageTime(item.createdAt)}</Text>
             {isCurrentUser && (
               <MaterialCommunityIcons
-                name={item.status === 'read' ? 'check-all' : 'check'}
+                name={item.isRead ? 'check-all' : 'check'}
                 size={16}
-                color={item.status === 'read' ? '#6C63FF' : '#666'}
+                color={item.isRead ? '#6C63FF' : '#666'}
                 style={styles.statusIcon}
               />
             )}
@@ -128,13 +184,10 @@ const ChatScreen = () => {
         </TouchableOpacity>
         
         <View style={styles.userInfo}>
-          <Avatar.Image size={40} source={{ uri: chatUser.avatar }} />
+          <Avatar.Image size={40} source={{ uri: userImage }} />
           <View style={styles.userTextInfo}>
             <Text variant="titleMedium" style={styles.userName}>
-              {chatUser.name}
-            </Text>
-            <Text variant="bodySmall" style={styles.userStatus}>
-              {chatUser.isOnline ? 'Online' : 'Offline'}
+              {userName}
             </Text>
           </View>
         </View>
@@ -145,16 +198,39 @@ const ChatScreen = () => {
       </View>
 
       {/* Messages */}
-      <FlatList
-        ref={flatListRef}
-        data={messages}
-        renderItem={renderMessage}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.messagesList}
-        inverted={false}
-        onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-        showsVerticalScrollIndicator={false}
-      />
+      {isLoading && !refreshing ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#6C63FF" />
+          <Text style={styles.loadingText}>Loading messages...</Text>
+          
+          {/* Debug info */}
+          <View style={styles.debugContainer}>
+            <Text style={styles.debugTitle}>Debug Info:</Text>
+            <Text style={styles.debugText}>User ID: {userId}</Text>
+            <Text style={styles.debugText}>API URL: {apiBaseUrl}</Text>
+            <Text style={styles.debugText}>{debugInfo}</Text>
+          </View>
+        </View>
+      ) : (
+        <FlatList
+          ref={flatListRef}
+          data={messages}
+          renderItem={renderMessage}
+          keyExtractor={(item) => item.id.toString()}
+          contentContainerStyle={styles.messagesList}
+          inverted={false}
+          onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+          onRefresh={handleRefresh}
+          refreshing={refreshing}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={() => (
+            <View style={styles.emptyContainer}>
+              <MaterialCommunityIcons name="chat-outline" size={64} color="#6C63FF" opacity={0.5} />
+              <Text style={styles.emptyText}>No messages yet. Start the conversation!</Text>
+            </View>
+          )}
+        />
+      )}
 
       {/* Input Area */}
       <KeyboardAvoidingView
@@ -162,10 +238,6 @@ const ChatScreen = () => {
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
         <View style={styles.inputContainer}>
-          <TouchableOpacity style={styles.attachButton}>
-            <MaterialCommunityIcons name="paperclip" size={24} color="#666" />
-          </TouchableOpacity>
-          
           <TextInput
             style={styles.input}
             value={inputMessage}
@@ -177,15 +249,22 @@ const ChatScreen = () => {
           />
           
           <TouchableOpacity
-            style={[styles.sendButton, inputMessage.trim().length === 0 && styles.sendButtonDisabled]}
+            style={[
+              styles.sendButton, 
+              (inputMessage.trim().length === 0 || isSending) && styles.sendButtonDisabled
+            ]}
             onPress={handleSend}
-            disabled={inputMessage.trim().length === 0}
+            disabled={inputMessage.trim().length === 0 || isSending}
           >
-            <MaterialCommunityIcons
-              name="send"
-              size={24}
-              color={inputMessage.trim().length === 0 ? '#666' : '#6C63FF'}
-            />
+            {isSending ? (
+              <ActivityIndicator size="small" color="#6C63FF" />
+            ) : (
+              <MaterialCommunityIcons
+                name="send"
+                size={24}
+                color={inputMessage.trim().length === 0 ? '#666' : '#6C63FF'}
+              />
+            )}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -219,14 +298,13 @@ const styles = StyleSheet.create({
   userName: {
     fontWeight: '600',
   },
-  userStatus: {
-    color: '#666',
-  },
   moreButton: {
     marginLeft: 12,
   },
   messagesList: {
     padding: 16,
+    flexGrow: 1,
+    justifyContent: 'flex-end',
   },
   messageContainer: {
     marginBottom: 16,
@@ -241,15 +319,14 @@ const styles = StyleSheet.create({
   messageBubble: {
     padding: 12,
     borderRadius: 16,
-    borderTopRightRadius: 4,
   },
   currentUserBubble: {
     backgroundColor: '#6C63FF',
-    borderTopRightRadius: 16,
-    borderTopLeftRadius: 4,
+    borderTopRightRadius: 4,
   },
   otherUserBubble: {
-    backgroundColor: '#F8F9FF',
+    backgroundColor: '#F0F0F0',
+    borderTopLeftRadius: 4,
   },
   messageText: {
     fontSize: 16,
@@ -259,16 +336,16 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   otherUserText: {
-    color: '#000',
+    color: '#333',
   },
   messageFooter: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'flex-end',
+    alignItems: 'center',
   },
   timestamp: {
     fontSize: 12,
-    color: '#666',
+    color: '#999',
     marginRight: 4,
   },
   statusIcon: {
@@ -282,23 +359,62 @@ const styles = StyleSheet.create({
     borderTopColor: '#F0F0F0',
     backgroundColor: '#fff',
   },
-  attachButton: {
-    padding: 8,
-  },
   input: {
     flex: 1,
-    marginHorizontal: 12,
-    padding: 8,
-    backgroundColor: '#F8F9FF',
+    backgroundColor: '#F5F5F5',
     borderRadius: 20,
-    maxHeight: 100,
-    fontSize: 16,
+    padding: 12,
+    paddingTop: 12,
+    maxHeight: 120,
+    color: '#333',
   },
   sendButton: {
-    padding: 8,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#F8F9FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
   },
   sendButtonDisabled: {
     opacity: 0.5,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+    height: 300,
+  },
+  emptyText: {
+    marginTop: 16,
+    color: '#666',
+    textAlign: 'center',
+  },
+  loadingText: {
+    marginTop: 16,
+    color: '#666',
+  },
+  debugContainer: {
+    marginTop: 20,
+    padding: 10,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 5,
+    width: '80%',
+  },
+  debugTitle: {
+    fontWeight: 'bold',
+    marginBottom: 5,
+  },
+  debugText: {
+    fontSize: 12,
+    color: '#333',
   },
 });
 

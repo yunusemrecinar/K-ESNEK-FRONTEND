@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { View, StyleSheet, ScrollView, Linking, TouchableOpacity } from 'react-native';
 import { Text, Card, Chip, Button, Divider, ActivityIndicator, useTheme } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -10,6 +10,7 @@ import { format } from 'date-fns';
 // Define the types
 type RootStackParamList = {
   ApplicationDetails: { applicationId: string };
+  Chat: { userId: string; userName: string; userImage: string };
 };
 
 type ApplicationDetailsRouteProp = RouteProp<RootStackParamList, 'ApplicationDetails'>;
@@ -93,6 +94,16 @@ const ApplicationDetailsScreen = () => {
       case 'rejected': return theme.colors.error;
       default: return theme.colors.primary;
     }
+  };
+
+  // Handle opening email
+  const handleEmailPress = (email: string) => {
+    Linking.openURL(`mailto:${email}`);
+  };
+
+  // Handle opening phone
+  const handlePhonePress = (phone: string) => {
+    Linking.openURL(`tel:${phone}`);
   };
 
   if (isLoading) {
@@ -197,17 +208,23 @@ const ApplicationDetailsScreen = () => {
                 <Text variant="titleMedium" style={styles.sectionTitle}>Contact Information</Text>
                 
                 {application.contactEmail && (
-                  <View style={styles.contactItem}>
+                  <TouchableOpacity 
+                    style={styles.contactItem}
+                    onPress={() => handleEmailPress(application.contactEmail || '')}
+                  >
                     <MaterialCommunityIcons name="email" size={20} color={theme.colors.primary} />
-                    <Text variant="bodyMedium" style={styles.contactText}>{application.contactEmail}</Text>
-                  </View>
+                    <Text variant="bodyMedium" style={[styles.contactText, styles.contactLink]}>{application.contactEmail}</Text>
+                  </TouchableOpacity>
                 )}
                 
                 {application.contactPhone && (
-                  <View style={styles.contactItem}>
+                  <TouchableOpacity 
+                    style={styles.contactItem}
+                    onPress={() => handlePhonePress(application.contactPhone || '')}
+                  >
                     <MaterialCommunityIcons name="phone" size={20} color={theme.colors.primary} />
-                    <Text variant="bodyMedium" style={styles.contactText}>{application.contactPhone}</Text>
-                  </View>
+                    <Text variant="bodyMedium" style={[styles.contactText, styles.contactLink]}>{application.contactPhone}</Text>
+                  </TouchableOpacity>
                 )}
               </>
             )}
@@ -217,11 +234,16 @@ const ApplicationDetailsScreen = () => {
         <View style={styles.actionsContainer}>
           <Button 
             mode="contained" 
-            icon="email" 
+            icon="chat" 
             style={[styles.actionButton, styles.primaryButton]} 
+            buttonColor="#4A87C9"
             onPress={() => {
-              // TODO: Implement contacting employer
-              console.log('Contact employer');
+              // Navigate to Chat screen with the employer information
+              navigation.navigate('Chat', {
+                userId: application.id.toString(),
+                userName: application.companyName || 'Employer',
+                userImage: `https://i.pravatar.cc/150?u=${application.id}` // Generate avatar based on ID
+              });
             }}
           >
             Contact Employer
@@ -325,6 +347,9 @@ const styles = StyleSheet.create({
   },
   contactText: {
     opacity: 0.7,
+  },
+  contactLink: {
+    textDecorationLine: 'underline',
   },
   actionsContainer: {
     padding: 16,
