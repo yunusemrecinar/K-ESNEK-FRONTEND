@@ -9,6 +9,7 @@ export type MainStackParamList = {
   Chat: { userId: string; userName: string; userImage: string };
   Applications: undefined;
   AllCategories: undefined;
+  JobDetails: { jobId: number };
 };
 
 const Stack = createNativeStackNavigator<MainStackParamList>();

@@ -4,6 +4,8 @@ import { Text, Card, Chip, ActivityIndicator, Button, Searchbar, useTheme } from
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { format } from 'date-fns';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 // Types for the application
 interface Application {
@@ -16,6 +18,13 @@ interface Application {
   salary: string;
 }
 
+// Define the navigation param list type
+type RootStackParamList = {
+  ApplicationDetails: { applicationId: string };
+};
+
+type ApplicationsScreenNavigationProp = NativeStackNavigationProp<RootStackParamList>;
+
 const ApplicationsScreen = () => {
   const [applications, setApplications] = useState<Application[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -23,6 +32,7 @@ const ApplicationsScreen = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'pending' | 'accepted' | 'rejected'>('all');
   const theme = useTheme();
+  const navigation = useNavigation<ApplicationsScreenNavigationProp>();
 
   // Fetch applications
   const fetchApplications = useCallback(async () => {
@@ -116,7 +126,12 @@ const ApplicationsScreen = () => {
         </View>
       </Card.Content>
       <Card.Actions>
-        <Button mode="text" onPress={() => {}}>View Details</Button>
+        <Button 
+          mode="text" 
+          onPress={() => navigation.navigate('ApplicationDetails', { applicationId: item.id })}
+        >
+          View Details
+        </Button>
       </Card.Actions>
     </Card>
   );

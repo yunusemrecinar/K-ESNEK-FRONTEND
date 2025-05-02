@@ -7,10 +7,12 @@ import { Ionicons } from '@expo/vector-icons';
 import WorkingHomeScreen from '../screens/working/WorkingHomeScreen';
 import JobSearchScreen from '../screens/working/JobSearchScreen';
 import ApplicationsScreen from '../screens/working/ApplicationsScreen';
+import ApplicationDetailsScreen from '../screens/working/ApplicationDetailsScreen';
 import WorkingProfileScreen from '../screens/working/WorkingProfileScreen';
 import ChatScreen from '../screens/main/ChatScreen';
 import MessagesScreen from '../screens/main/MessagesScreen';
 import CategoryScreen from '../screens/categories/CategoryScreen';
+import JobDetailsScreen from '../screens/job/JobDetailsScreen';
 import AllCategoriesScreen from '../screens/categories/AllCategoriesScreen';
 
 const Tab = createBottomTabNavigator();
@@ -57,6 +59,8 @@ const WorkingNavigator = () => {
       <Stack.Screen name="Category" component={CategoryScreen} />
       <Stack.Screen name="Chat" component={ChatScreen} />
       <Stack.Screen name="Applications" component={ApplicationsScreen} />
+      <Stack.Screen name="ApplicationDetails" component={ApplicationDetailsScreen} />
+      <Stack.Screen name="JobDetails" component={JobDetailsScreen} />
       <Stack.Screen name="AllCategories" component={AllCategoriesScreen} />
     </Stack.Navigator>
   );

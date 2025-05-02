@@ -12,7 +12,7 @@ import { Text, Searchbar, Card, IconButton, Chip, Button } from 'react-native-pa
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { NativeStackScreenProps, NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MainStackParamList } from '../../navigation/MainNavigator';
 import { apiClient } from '../../services/api/client';
 
@@ -44,12 +44,13 @@ interface Job {
 }
 
 type CategoryScreenProps = NativeStackScreenProps<MainStackParamList, 'Category'>;
+type CategoryNavigationProp = NativeStackNavigationProp<MainStackParamList>;
 
 const JobCard: React.FC<{
   job: Job;
   isPopular?: boolean;
 }> = ({ job, isPopular }) => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<CategoryNavigationProp>();
   const cardStyle = isPopular ? styles.popularCard : styles.regularCard;
 
   return (
@@ -110,7 +111,11 @@ const JobCard: React.FC<{
           )}
         </View>
         
-        <Button mode="contained" style={styles.applyButton}>
+        <Button 
+          mode="contained" 
+          style={styles.applyButton}
+          onPress={() => navigation.navigate('JobDetails', { jobId: job.id })}
+        >
           View Details
         </Button>
       </Card.Content>
