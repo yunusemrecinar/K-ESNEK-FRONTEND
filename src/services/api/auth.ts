@@ -10,6 +10,13 @@ export interface User {
   // Add other user properties as needed
 }
 
+// Backend user info format
+export interface BackendUserInfo {
+  id: number;
+  email: string;
+  name: string;
+}
+
 export interface LoginResponse {
   token: string;
   refreshToken?: string;
@@ -72,9 +79,16 @@ export const authApi = {
         await apiClient.storeTokens(response.data.token, response.data.refreshToken);
       }
       
-      // Add fallback for potentially missing user object
-      if (!response.data.user && response.data.flag) {
-        // Create a default user object if it's missing
+      // Map the backend user info to our frontend User format
+      if (response.data.user) {
+        const backendUser = response.data.user as unknown as BackendUserInfo;
+        response.data.user = {
+          id: backendUser.id.toString(),
+          email: backendUser.email,
+          fullName: backendUser.name
+        };
+      } else if (response.data.flag) {
+        // Fallback only if user info is still missing
         response.data.user = {
           id: 'temp-id',
           email: email,
@@ -101,9 +115,16 @@ export const authApi = {
         await apiClient.storeTokens(response.data.token, response.data.refreshToken);
       }
       
-      // Add fallback for potentially missing user object
-      if (!response.data.user && response.data.flag) {
-        // Create a default user object if it's missing
+      // Map the backend user info to our frontend User format
+      if (response.data.user) {
+        const backendUser = response.data.user as unknown as BackendUserInfo;
+        response.data.user = {
+          id: backendUser.id.toString(),
+          email: backendUser.email,
+          fullName: backendUser.name
+        };
+      } else if (response.data.flag) {
+        // Fallback only if user info is still missing
         response.data.user = {
           id: 'temp-id',
           email: email,

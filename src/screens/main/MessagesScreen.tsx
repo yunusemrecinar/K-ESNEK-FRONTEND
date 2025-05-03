@@ -14,6 +14,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MainStackParamList } from '../../navigation/MainNavigator';
 import { ConversationSummary, messagingService } from '../../services/api/messagingService';
 import { format, isToday, isYesterday } from 'date-fns';
+import { useAuth } from '../../hooks/useAuth';
 
 type NavigationProp = NativeStackNavigationProp<MainStackParamList>;
 
@@ -36,11 +37,28 @@ const MessagesScreen = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const navigation = useNavigation<NavigationProp>();
+  const { accountType, user } = useAuth();
 
   const fetchConversations = async () => {
     try {
       setIsLoading(true);
-      const response = await messagingService.getConversations();
+      console.log(`Fetching conversations as ${accountType} account`);
+      
+      let response;
+      
+      // Use different service methods based on account type
+      if (accountType === 'employer') {
+        // For employers, we need to get all messages across conversations
+        console.log('Using employer message fetch method');
+        response = await messagingService.getAllEmployerMessages();
+      } else {
+        // For employees, use the existing conversations endpoint
+        console.log('Using employee conversation fetch method');
+        response = await messagingService.getConversations();
+      }
+      
+      console.log(`Fetched ${response.conversations?.length || 0} conversations`);
+      
       setConversations(response.conversations || []);
       setFilteredConversations(response.conversations || []);
     } catch (error) {
@@ -72,50 +90,60 @@ const MessagesScreen = () => {
     fetchConversations();
   };
 
-  const renderItem = ({ item }: { item: ConversationSummary }) => (
-    <TouchableOpacity
-      style={styles.messageItem}
-      onPress={() => navigation.navigate('Chat', { 
-        userId: item.otherUserId.toString(),
-        userName: item.otherUserName,
-        userImage: `https://i.pravatar.cc/150?u=${item.otherUserId}` // Using a random avatar based on user ID
-      })}
-    >
-      <View style={styles.avatarContainer}>
-        <Avatar.Image 
-          size={60} 
-          source={{ uri: `https://i.pravatar.cc/150?u=${item.otherUserId}` }} 
-        />
-      </View>
-      
-      <View style={styles.messageContent}>
-        <View style={styles.messageHeader}>
-          <Text variant="titleMedium" style={styles.userName}>
-            {item.otherUserName}
-          </Text>
-          <Text variant="bodySmall" style={styles.timestamp}>
-            {formatMessageDate(item.lastMessageDate)}
-          </Text>
+  const renderItem = ({ item }: { item: ConversationSummary }) => {
+    // Create a consistent avatar URL
+    const avatarUrl = `https://i.pravatar.cc/150?u=${item.otherUserId}`;
+  
+    console.log(`Rendering conversation with ${item.otherUserName} (ID: ${item.otherUserId})`);
+  
+    return (
+      <TouchableOpacity
+        style={styles.messageItem}
+        onPress={() => {
+          console.log(`Navigating to chat with user ${item.otherUserName} (ID: ${item.otherUserId})`);
+          navigation.navigate('Chat', { 
+            userId: item.otherUserId.toString(),
+            userName: item.otherUserName,
+            userImage: avatarUrl
+          });
+        }}
+      >
+        <View style={styles.avatarContainer}>
+          <Avatar.Image 
+            size={60} 
+            source={{ uri: avatarUrl }} 
+          />
         </View>
         
-        <View style={styles.messageFooter}>
-          <Text
-            variant="bodyMedium"
-            style={styles.lastMessage}
-            numberOfLines={1}
-            ellipsizeMode="tail"
-          >
-            {item.lastMessageContent}
-          </Text>
-          {item.unreadCount > 0 && (
-            <View style={styles.unreadBadge}>
-              <Text style={styles.unreadCount}>{item.unreadCount}</Text>
-            </View>
-          )}
+        <View style={styles.messageContent}>
+          <View style={styles.messageHeader}>
+            <Text variant="titleMedium" style={styles.userName}>
+              {item.otherUserName}
+            </Text>
+            <Text variant="bodySmall" style={styles.timestamp}>
+              {formatMessageDate(item.lastMessageDate)}
+            </Text>
+          </View>
+          
+          <View style={styles.messageFooter}>
+            <Text
+              variant="bodyMedium"
+              style={styles.lastMessage}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
+              {item.lastMessageContent}
+            </Text>
+            {item.unreadCount > 0 && (
+              <View style={styles.unreadBadge}>
+                <Text style={styles.unreadCount}>{item.unreadCount}</Text>
+              </View>
+            )}
+          </View>
         </View>
-      </View>
-    </TouchableOpacity>
-  );
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>

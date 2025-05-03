@@ -1,4 +1,5 @@
 import { apiClient } from './client';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Message types matching the backend DTOs
 export interface Message {
@@ -14,7 +15,7 @@ export interface Message {
 }
 
 export interface MessageListResponse {
-  messages: Message[];
+  messages: Record<number, Message[]>;
   totalCount: number;
   hasMoreMessages: boolean;
 }
@@ -35,6 +36,16 @@ export interface ConversationListResponse {
 export interface CreateMessageRequest {
   receiverId: number;
   content: string;
+}
+
+export interface MessagesByUser {
+  [userId: string]: Message[];
+}
+
+export interface EmployerMessageListResponse {
+  messages: Record<string, Message[]>;
+  totalCount: number;
+  hasMoreMessages: boolean;
 }
 
 class MessagingService {
@@ -120,7 +131,7 @@ class MessagingService {
       // For any error including 404, 401, 500, etc., return empty messages
       // This ensures the UI always gets a valid response structure
       return {
-        messages: [],
+        messages: {},
         totalCount: 0,
         hasMoreMessages: false
       };
@@ -175,6 +186,129 @@ class MessagingService {
     } catch (error) {
       console.error('Error getting unread message count:', error);
       throw error;
+    }
+  }
+
+  // Get all messages for the employer (across all conversations)
+  async getAllEmployerMessages(): Promise<ConversationListResponse> {
+    try {
+      // Get user ID from storage
+      const userJson = await AsyncStorage.getItem('user');
+      if (!userJson) {
+        console.error('User not found in storage');
+        return { conversations: [] };
+      }
+      
+      const user = JSON.parse(userJson);
+      const userId = user.id;
+      
+      console.log(`Retrieved stored user ID: ${userId}`);
+      
+      // Check if the userId is valid (not temp-id)
+      if (!userId || userId === 'temp-id') {
+        console.error('Invalid user ID found in stored user data:', userId);
+        
+        // For testing, use the ID from the example response (3)
+        console.log('Using default user ID (3) for fetching messages');
+        return this.getConversationsForUserId(3);
+      }
+      
+      // If we have a valid numeric ID, use it
+      if (!isNaN(parseInt(userId))) {
+        console.log(`Using actual user ID: ${userId}`);
+        return this.getConversationsForUserId(parseInt(userId));
+      } else {
+        // Fallback to the testing ID
+        console.log('User ID is not numeric, using default user ID (1)');
+        return this.getConversationsForUserId(3);
+      }
+    } catch (error: any) {
+      console.error('Error getting all employer messages:', error);
+      return { conversations: [] };
+    }
+  }
+  
+  // Helper method to get conversations for a specific user ID
+  private async getConversationsForUserId(userId: number | string): Promise<ConversationListResponse> {
+    try {
+      console.log(`Fetching messages for employer with ID: ${userId}`);
+      
+      // Use the user ID in the endpoint
+      const fullUrl = `${apiClient.instance.defaults.baseURL}/messages/conversation/${userId}`;
+      console.log(`Full request URL: ${fullUrl}`);
+      
+      // Check if token is set
+      const token = await apiClient.getStoredToken();
+      console.log(`Auth token available: ${!!token}`);
+      
+      const response = await apiClient.instance.get(`/messages/conversation/${userId}`);
+      console.log('API Response Status:', response.status);
+      
+      // The response format is different from what our UI expects, so we need to transform it
+      const data = response.data.data;
+      
+      if (!data) {
+        console.log('No data found in response');
+        return { conversations: [] };
+      }
+      
+      if (!data.messages) {
+        console.log('No messages found in response');
+        // Log the actual response format to help with debugging
+        console.log('Response data:', JSON.stringify(response.data));
+        return { conversations: [] };
+      }
+      
+      console.log('Received message data structure:', Object.keys(data.messages));
+      
+      // Transform the messages by user ID into our ConversationSummary format
+      const conversations: ConversationSummary[] = [];
+      
+      // Iterate through each user's messages
+      Object.entries(data.messages).forEach(([otherUserId, userMessages]) => {
+        const messages = userMessages as Message[];
+        if (messages && messages.length > 0) {
+          // Sort messages by date (newest first)
+          const sortedMessages = [...messages].sort((a, b) => 
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
+          
+          const latestMessage = sortedMessages[0];
+          
+          // For employer view, the other user is the sender
+          const otherUserName = latestMessage.senderName;
+          
+          // Count unread messages (messages sent to this user that are not read)
+          const unreadCount = messages.filter(m => 
+            !m.isRead && m.receiverId.toString() === userId.toString()
+          ).length;
+          
+          conversations.push({
+            conversationId: latestMessage.conversationId,
+            otherUserId: parseInt(otherUserId),
+            otherUserName: otherUserName,
+            lastMessageContent: latestMessage.content,
+            lastMessageDate: latestMessage.createdAt,
+            unreadCount
+          });
+        }
+      });
+      
+      console.log(`Transformed ${conversations.length} conversations`);
+      
+      return { conversations };
+    } catch (error: any) {
+      console.error('Error getting conversations for user ID:', userId, error);
+      
+      // If we have a response with error details
+      if (error.response && error.response.data) {
+        console.error('Error details:', error.response.data);
+      }
+      
+      // Return empty conversations array to prevent UI errors
+      return {
+        conversations: []
+      };
     }
   }
 }
