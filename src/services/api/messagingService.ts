@@ -59,10 +59,23 @@ class MessagingService {
   // Send a message to another user
   async sendMessage(request: CreateMessageRequest): Promise<Message> {
     try {
+      console.log('Sending message to user:', request.receiverId);
       const response = await apiClient.instance.post('/messages', request);
-      return response.data;
-    } catch (error) {
+      return response.data.data; // Access the data inside the ApiResponse wrapper
+    } catch (error: any) {
       console.error('Error sending message:', error);
+      
+      // Handle the case where the error has a response
+      if (error.response) {
+        console.error('Error Status:', error.response.status);
+        console.error('Error Data:', JSON.stringify(error.response.data));
+        
+        // If the error has a specific message from the server, use it
+        if (error.response.data && error.response.data.message) {
+          throw new Error(error.response.data.message);
+        }
+      }
+      
       throw error;
     }
   }
@@ -83,7 +96,7 @@ class MessagingService {
       
       const response = await apiClient.instance.get(`/messages/conversation/${userId}`);
       console.log('API Response Status:', response.status);
-      return response.data;
+      return response.data.data; // Access the data inside the ApiResponse wrapper
     } catch (error: any) {
       console.error('Error getting conversation:', error);
       
@@ -92,6 +105,11 @@ class MessagingService {
         console.error('Error Status:', error.response.status);
         console.error('Error Data:', JSON.stringify(error.response.data));
         console.error('Error Headers:', JSON.stringify(error.response.headers));
+        
+        // If it's a 404, we can assume this is a new conversation
+        if (error.response.status === 404) {
+          console.log('New conversation - no messages yet');
+        }
       } else if (error.request) {
         console.error('No response received:', error.request);
       } else {
@@ -113,10 +131,19 @@ class MessagingService {
   async getConversations(): Promise<ConversationListResponse> {
     try {
       const response = await apiClient.instance.get('/messages/conversations');
-      return response.data;
-    } catch (error) {
+      return response.data.data; // Access the data inside the ApiResponse wrapper
+    } catch (error: any) {
       console.error('Error getting conversations:', error);
-      throw error;
+      
+      // If we have a response with error details
+      if (error.response && error.response.data) {
+        console.error('Error details:', error.response.data);
+      }
+      
+      // Return empty conversations array to prevent UI errors
+      return {
+        conversations: []
+      };
     }
   }
 

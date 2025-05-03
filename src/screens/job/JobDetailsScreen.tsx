@@ -335,7 +335,7 @@ const JobDetailsScreen: React.FC = () => {
               navigation.navigate('Chat', {
                 userId: job.employerId.toString(),
                 userName: job.companyName || 'Employer',
-                userImage: `https://i.pravatar.cc/150?u=${job.employerId}` // Generate avatar based on employer ID
+                userImage: job.companyLogo || `https://i.pravatar.cc/150?u=${job.employerId}` // Use company logo or generate avatar
               });
             }}
           >

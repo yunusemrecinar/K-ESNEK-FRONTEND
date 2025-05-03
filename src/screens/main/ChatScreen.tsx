@@ -9,6 +9,7 @@ import {
   TextInput,
   Keyboard,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Text, Avatar } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -108,20 +109,38 @@ const ChatScreen = () => {
         content: inputMessage.trim()
       };
       
-      // Send message to API
-      await messagingService.sendMessage(messageRequest);
+      // Add the message locally first for immediate feedback
+      const tempMessage: Message = {
+        id: Date.now(), // Temporary ID that will be overwritten
+        content: inputMessage.trim(),
+        senderId: -1, // Will be set by backend
+        senderName: 'You', // Placeholder
+        receiverId: Number(userId),
+        receiverName: userName,
+        conversationId: '', // Will be set by backend
+        isRead: false,
+        createdAt: new Date().toISOString()
+      };
       
-      // Clear input and refresh messages
+      // Update UI immediately
+      setMessages(prevMessages => [...prevMessages, tempMessage]);
+      
+      // Clear input and dismiss keyboard
       setInputMessage('');
       Keyboard.dismiss();
       
-      // Refresh messages to include the new one
+      // Send message to API
+      await messagingService.sendMessage(messageRequest);
+      
+      // Refresh messages to get the actual message from the server
       await fetchMessages();
       
       // Scroll to bottom
       flatListRef.current?.scrollToEnd({ animated: true });
     } catch (error) {
       console.error('Error sending message:', error);
+      // Show error to user
+      Alert.alert('Error', 'Failed to send message. Please try again.');
     } finally {
       setIsSending(false);
     }
