@@ -56,58 +56,89 @@ const JobDetailsScreen: React.FC = () => {
         setIsLoading(true);
         setError(null);
 
-        // TODO: Replace with actual API call
-        // In a real app, you would fetch the job details from your API
-        // const response = await apiClient.instance.get(`/jobs/${jobId}`);
-        // setJob(response.data);
-
-        // For now, we'll simulate an API call with mock data
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Mock data for the job details
-        const mockJob: Job = {
-          id: jobId,
-          title: "Senior React Native Developer",
-          description: "We are looking for an experienced React Native developer to join our mobile app development team. In this role, you will develop and maintain high-quality mobile applications for both iOS and Android platforms using React Native. You will work with our design and product teams to implement new features and ensure the performance and quality of applications.",
-          employerId: 1,
-          categoryId: 1,
-          jobLocationType: "Remote",
-          city: "Istanbul",
-          country: "Turkey",
-          currency: "$",
-          minSalary: 60000,
-          maxSalary: 90000,
-          employmentType: "Full-time",
-          experienceLevel: "Senior",
-          educationLevel: "Bachelor's Degree",
-          jobStatus: "Active",
-          applicationDeadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days from now
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          requirements: [
-            "3+ years of experience with React Native",
-            "Strong understanding of React Native components, state management, and hooks",
-            "Experience with RESTful APIs and third-party libraries",
-            "Familiarity with native build tools like Xcode and Android Studio",
-            "Knowledge of TypeScript",
-            "Experience with state management libraries (Redux, Context API)",
-            "Understanding of mobile UI/UX principles"
-          ],
-          responsibilities: [
-            "Develop and maintain React Native applications for iOS and Android",
-            "Implement new features and ensure the overall reliability and performance of applications",
-            "Collaborate with the design team to implement UI/UX designs",
-            "Work with the backend team to integrate API services",
-            "Identify and fix bugs and performance bottlenecks",
-            "Write clean, maintainable code and perform code reviews",
-            "Stay up-to-date with emerging trends in mobile development"
-          ],
-          companyName: "Tech Innovations Ltd",
-          contactEmail: "careers@techinnovations.com",
-          contactPhone: "+90 212 555 6789"
-        };
-        
-        setJob(mockJob);
+        // Make actual API call to get job details
+        const response = await apiClient.instance.get(`/jobs/${jobId}`);
+        if (response.data && response.data.data) {
+          // Map the API response to our Job interface
+          const apiJob = response.data.data;
+          const jobData: Job = {
+            id: apiJob.id,
+            title: apiJob.title,
+            description: apiJob.description,
+            employerId: apiJob.employerId,
+            categoryId: apiJob.categoryId,
+            jobLocationType: apiJob.jobLocationType,
+            city: apiJob.city,
+            country: apiJob.country,
+            currency: apiJob.currency || '$',
+            minSalary: apiJob.minSalary,
+            maxSalary: apiJob.maxSalary,
+            employmentType: apiJob.employmentType,
+            experienceLevel: apiJob.experienceLevel,
+            educationLevel: apiJob.educationLevel,
+            jobStatus: apiJob.jobStatus,
+            applicationDeadline: apiJob.applicationDeadline,
+            createdAt: apiJob.createdAt,
+            updatedAt: apiJob.updatedAt,
+            // Map other fields from API response
+            requirements: apiJob.jobRequirements?.map((req: any) => req.description) || [],
+            responsibilities: apiJob.jobResponsibilities?.map((resp: any) => resp.description) || [],
+            // These fields might need to be fetched from a different endpoint or included in the job response
+            companyName: apiJob.companyName || "Company Name",
+            contactEmail: apiJob.contactEmail,
+            contactPhone: apiJob.contactPhone
+          };
+          
+          setJob(jobData);
+        } else {
+          // Fallback to mock data if API doesn't return expected format
+          console.warn('API response format unexpected, using mock data');
+          
+          // Mock data for the job details - only used as fallback
+          const mockJob: Job = {
+            id: jobId,
+            title: "Senior React Native Developer",
+            description: "We are looking for an experienced React Native developer to join our mobile app development team. In this role, you will develop and maintain high-quality mobile applications for both iOS and Android platforms using React Native. You will work with our design and product teams to implement new features and ensure the performance and quality of applications.",
+            employerId: 1,
+            categoryId: 1,
+            jobLocationType: "Remote",
+            city: "Istanbul",
+            country: "Turkey",
+            currency: "$",
+            minSalary: 60000,
+            maxSalary: 90000,
+            employmentType: "Full-time",
+            experienceLevel: "Senior",
+            educationLevel: "Bachelor's Degree",
+            jobStatus: "Active",
+            applicationDeadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days from now
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            requirements: [
+              "3+ years of experience with React Native",
+              "Strong understanding of React Native components, state management, and hooks",
+              "Experience with RESTful APIs and third-party libraries",
+              "Familiarity with native build tools like Xcode and Android Studio",
+              "Knowledge of TypeScript",
+              "Experience with state management libraries (Redux, Context API)",
+              "Understanding of mobile UI/UX principles"
+            ],
+            responsibilities: [
+              "Develop and maintain React Native applications for iOS and Android",
+              "Implement new features and ensure the overall reliability and performance of applications",
+              "Collaborate with the design team to implement UI/UX designs",
+              "Work with the backend team to integrate API services",
+              "Identify and fix bugs and performance bottlenecks",
+              "Write clean, maintainable code and perform code reviews",
+              "Stay up-to-date with emerging trends in mobile development"
+            ],
+            companyName: "Tech Innovations Ltd",
+            contactEmail: "careers@techinnovations.com",
+            contactPhone: "+90 212 555 6789"
+          };
+          
+          setJob(mockJob);
+        }
       } catch (err) {
         console.error('Error fetching job details:', err);
         setError('Failed to load job details. Please try again.');

@@ -103,9 +103,9 @@ const ChatScreen = () => {
     try {
       setIsSending(true);
       
-      // Create message payload
+      // Create message payload with the actual employerId from route params
       const messageRequest = {
-        receiverId: Number(userId),
+        receiverId: Number(userId),  // This is already correct - using the userId from route params
         content: inputMessage.trim()
       };
       
