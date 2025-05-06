@@ -20,6 +20,7 @@ import { MainStackParamList } from '../../navigation/MainNavigator';
 import { Message, messagingService } from '../../services/api/messagingService';
 import { apiClient } from '../../services/api/client';
 import { format } from 'date-fns';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type ChatScreenRouteProp = RouteProp<MainStackParamList, 'Chat'>;
 type NavigationProp = NativeStackNavigationProp<MainStackParamList, 'Chat'>;
@@ -51,7 +52,23 @@ const ChatScreen = () => {
       }
       
       const response = await messagingService.getConversation(Number(userId));
-      setMessages(response.messages || []);
+      
+      // Convert the grouped messages by user ID into a flat array
+      const allMessages: Message[] = [];
+      
+      if (response.messages) {
+        // Iterate through each user's messages and add them to the flat array
+        Object.values(response.messages).forEach((userMessages) => {
+          allMessages.push(...userMessages);
+        });
+        
+        // Sort messages by creation date (ascending)
+        allMessages.sort((a, b) => 
+          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        );
+      }
+      
+      setMessages(allMessages);
     } catch (error) {
       console.error('Error fetching messages:', error);
       // Don't show an error for non-existent conversations, just set empty messages
@@ -103,21 +120,32 @@ const ChatScreen = () => {
     try {
       setIsSending(true);
       
-      // Create message payload with the actual employerId from route params
+      // Create message payload with the actual receiverId from route params
       const messageRequest = {
-        receiverId: Number(userId),  // This is already correct - using the userId from route params
+        receiverId: Number(userId),
         content: inputMessage.trim()
       };
+      
+      // Get current user info for the temporary message
+      const currentUser = await AsyncStorage.getItem('user');
+      let currentUserId = -1;
+      let currentUserName = 'You';
+      
+      if (currentUser) {
+        const userObj = JSON.parse(currentUser);
+        currentUserId = userObj.id || -1;
+        currentUserName = userObj.email || 'You';
+      }
       
       // Add the message locally first for immediate feedback
       const tempMessage: Message = {
         id: Date.now(), // Temporary ID that will be overwritten
         content: inputMessage.trim(),
-        senderId: -1, // Will be set by backend
-        senderName: 'You', // Placeholder
+        senderId: currentUserId,
+        senderName: currentUserName,
         receiverId: Number(userId),
         receiverName: userName,
-        conversationId: '', // Will be set by backend
+        conversationId: `${currentUserId}-${userId}`, // Temporary conversationId
         isRead: false,
         createdAt: new Date().toISOString()
       };
@@ -161,6 +189,7 @@ const ChatScreen = () => {
   // Render a message
   const renderMessage = ({ item }: { item: Message }) => {
     // Determine if current user is the sender
+    // In the new API structure, if senderId matches the userId from route params, it's the other user
     const isCurrentUser = item.senderId.toString() !== userId;
 
     return (

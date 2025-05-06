@@ -20,6 +20,18 @@ export interface MessageListResponse {
   hasMoreMessages: boolean;
 }
 
+export interface ApiConversationResponse {
+  success: boolean;
+  data: {
+    messages: Record<string, Message[]>;
+    totalCount: number;
+    hasMoreMessages: boolean;
+  };
+  message: string | null;
+  errorCode: string | null;
+  errors: any | null;
+}
+
 export interface ConversationSummary {
   conversationId: string;
   otherUserId: number;
@@ -105,9 +117,28 @@ class MessagingService {
       const token = await apiClient.getStoredToken();
       console.log(`Auth token available: ${!!token}`);
       
-      const response = await apiClient.instance.get(`/messages/conversation/${userId}`);
+      const response = await apiClient.instance.get<ApiConversationResponse>(`/messages/conversation/${userId}`);
       console.log('API Response Status:', response.status);
-      return response.data.data; // Access the data inside the ApiResponse wrapper
+      
+      // Access the data inside the ApiResponse wrapper
+      const responseData = response.data.data;
+      
+      // Convert string keys to number keys for compatibility with existing code
+      const messagesWithNumberKeys: Record<number, Message[]> = {};
+      
+      // Process the messages by sender ID
+      if (responseData && responseData.messages) {
+        Object.entries(responseData.messages).forEach(([senderId, messages]) => {
+          // Convert string sender ID to number
+          messagesWithNumberKeys[parseInt(senderId)] = messages;
+        });
+      }
+      
+      return {
+        messages: messagesWithNumberKeys,
+        totalCount: responseData.totalCount,
+        hasMoreMessages: responseData.hasMoreMessages
+      };
     } catch (error: any) {
       console.error('Error getting conversation:', error);
       
