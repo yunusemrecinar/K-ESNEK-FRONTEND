@@ -39,6 +39,12 @@ const MessagesScreen = () => {
   const navigation = useNavigation<NavigationProp>();
   const { accountType, user } = useAuth();
 
+  // Log user information for debugging
+  useEffect(() => {
+    console.log('Current user:', user ? `ID: ${user.id}, Email: ${user.email}` : 'Not logged in');
+    console.log('Account type:', accountType);
+  }, [user, accountType]);
+
   const fetchConversations = async () => {
     try {
       setIsLoading(true);
@@ -59,8 +65,27 @@ const MessagesScreen = () => {
       
       console.log(`Fetched ${response.conversations?.length || 0} conversations`);
       
-      setConversations(response.conversations || []);
-      setFilteredConversations(response.conversations || []);
+      // Filter out conversations where the current user is both sender and receiver
+      let filteredResponse = response.conversations || [];
+      
+      if (user && user.id) {
+        const currentUserId = user.id;
+        console.log(`Filtering out conversations where current user ID (${currentUserId}) appears as both sender and receiver`);
+        
+        // Filter out conversations where otherUserId matches the current user's ID
+        filteredResponse = filteredResponse.filter(conversation => {
+          // Convert both IDs to strings for comparison to avoid type mismatch
+          const isCurrentUser = conversation.otherUserId.toString() === currentUserId.toString();
+          if (isCurrentUser) {
+            console.log(`Filtered out conversation with self (ID: ${currentUserId})`);
+          }
+          return !isCurrentUser;
+        });
+      }
+      
+      console.log(`Conversations after filtering: ${filteredResponse.length}`);
+      setConversations(filteredResponse);
+      setFilteredConversations(filteredResponse);
     } catch (error) {
       console.error('Error fetching conversations:', error);
     } finally {
@@ -175,7 +200,9 @@ const MessagesScreen = () => {
           <Text style={styles.emptyText}>
             {searchQuery.trim() !== '' 
               ? "No conversations match your search"
-              : "No conversations yet. Start chatting with employers!"}
+              : accountType === 'employer'
+                ? "No conversations yet. Connect with potential employees!"
+                : "No conversations yet. Connect with potential employers!"}
           </Text>
         </View>
       ) : (
