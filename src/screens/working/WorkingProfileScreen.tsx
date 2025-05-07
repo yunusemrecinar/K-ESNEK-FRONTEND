@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -6,11 +6,16 @@ import {
   ScrollView,
   TouchableOpacity,
   Platform,
+  Image,
+  Alert,
 } from 'react-native';
 import { Text, Button, Avatar, Card, Chip, IconButton, Badge, Surface } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { MaterialCommunityIcons as IconType } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
+import { fileService } from '../../services/api/files';
 
 const { width } = Dimensions.get('window');
 
@@ -28,7 +33,13 @@ interface Service {
 
 const ProfileScreen = () => {
   const [showAllReviews, setShowAllReviews] = useState(false);
+  const [profilePicture, setProfilePicture] = useState<string | null>(null);
+  const [backgroundPicture, setBackgroundPicture] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  
+  const employeeId = 1; // This should come from authentication context or state
   const rating = 4.9;
+
   const stats: Stat[] = [
     { label: 'Projects', value: '143', icon: 'briefcase-outline' },
     { label: 'Reviews', value: '98', icon: 'star-outline' },
@@ -68,6 +79,139 @@ const ProfileScreen = () => {
       avatar: 'S',
     },
   ];
+  
+  useEffect(() => {
+    // In a real app, you would fetch the employee profile data
+    // and check for profilePictureId and backgroundPictureId
+    
+    // For demo purposes, if these IDs exist, generate URLs
+    const mockProfilePictureId = null; // In real app: fetch from API
+    const mockBackgroundPictureId = null; // In real app: fetch from API
+    
+    if (mockProfilePictureId) {
+      setProfilePicture(fileService.getFileUrl(mockProfilePictureId));
+    }
+    
+    if (mockBackgroundPictureId) {
+      setBackgroundPicture(fileService.getFileUrl(mockBackgroundPictureId));
+    }
+  }, []);
+
+  const handleProfilePictureUpload = async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      if (!permission.granted) {
+        Alert.alert('Permission needed', 'Please grant permission to access your photo library');
+        return;
+      }
+      
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+      
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setIsUploading(true);
+        
+        // Get the URI from the first selected asset
+        const uri = result.assets[0].uri;
+        
+        // Create a file from the URI
+        const fileInfo = await fetch(uri);
+        const blob = await fileInfo.blob();
+        const filename = uri.split('/').pop() || 'profile.jpg';
+        const file = new File([blob], filename, { type: 'image/jpeg' });
+        
+        // Upload the file
+        const fileId = await fileService.uploadEmployeeProfilePicture(employeeId, file);
+        
+        // Set the profile picture URL
+        setProfilePicture(fileService.getFileUrl(fileId));
+        
+        setIsUploading(false);
+      }
+    } catch (error) {
+      console.error("Error uploading profile picture:", error);
+      Alert.alert('Upload Error', 'Could not upload profile picture');
+      setIsUploading(false);
+    }
+  };
+  
+  const handleBackgroundPictureUpload = async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      if (!permission.granted) {
+        Alert.alert('Permission needed', 'Please grant permission to access your photo library');
+        return;
+      }
+      
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [16, 9],
+        quality: 0.8,
+      });
+      
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setIsUploading(true);
+        
+        // Get the URI from the first selected asset
+        const uri = result.assets[0].uri;
+        
+        // Create a file from the URI
+        const fileInfo = await fetch(uri);
+        const blob = await fileInfo.blob();
+        const filename = uri.split('/').pop() || 'background.jpg';
+        const file = new File([blob], filename, { type: 'image/jpeg' });
+        
+        // Upload the file
+        const fileId = await fileService.uploadEmployeeBackgroundPicture(employeeId, file);
+        
+        // Set the background picture URL
+        setBackgroundPicture(fileService.getFileUrl(fileId));
+        
+        setIsUploading(false);
+      }
+    } catch (error) {
+      console.error("Error uploading background picture:", error);
+      Alert.alert('Upload Error', 'Could not upload background picture');
+      setIsUploading(false);
+    }
+  };
+  
+  const handleCVUpload = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+        copyToCacheDirectory: true,
+      });
+      
+      if (result.canceled === false && result.assets && result.assets.length > 0) {
+        setIsUploading(true);
+        
+        const asset = result.assets[0];
+        
+        // Create a file from the URI
+        const fileInfo = await fetch(asset.uri);
+        const blob = await fileInfo.blob();
+        const file = new File([blob], asset.name || 'cv.pdf', { type: asset.mimeType || 'application/pdf' });
+        
+        // Upload the CV
+        const fileId = await fileService.uploadEmployeeCV(employeeId, file);
+        
+        setIsUploading(false);
+        Alert.alert('Success', 'CV uploaded successfully');
+      }
+    } catch (error) {
+      console.error("Error uploading CV:", error);
+      Alert.alert('Upload Error', 'Could not upload CV');
+      setIsUploading(false);
+    }
+  };
 
   const displayedReviews = showAllReviews ? reviews : reviews.slice(0, 2);
 
@@ -76,8 +220,12 @@ const ProfileScreen = () => {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Cover Image */}
         <View style={styles.coverImageContainer}>
-          <MaterialCommunityIcons name="image" size={32} color="#666" style={styles.placeholderIcon} />
-          <TouchableOpacity style={styles.editCoverButton}>
+          {backgroundPicture ? (
+            <Image source={{ uri: backgroundPicture }} style={styles.coverImage} />
+          ) : (
+            <MaterialCommunityIcons name="image" size={32} color="#666" style={styles.placeholderIcon} />
+          )}
+          <TouchableOpacity style={styles.editCoverButton} onPress={handleBackgroundPictureUpload} disabled={isUploading}>
             <MaterialCommunityIcons name="camera" size={20} color="#fff" />
           </TouchableOpacity>
         </View>
@@ -86,13 +234,21 @@ const ProfileScreen = () => {
         <View style={styles.profileSection}>
           {/* Profile Picture */}
           <View style={styles.profilePictureContainer}>
-            <Avatar.Icon 
-              size={100} 
-              icon="account"
-              style={styles.profilePicture}
-              color="#fff"
-            />
-            <TouchableOpacity style={styles.editAvatarButton}>
+            {profilePicture ? (
+              <Avatar.Image 
+                size={100} 
+                source={{ uri: profilePicture }}
+                style={styles.profilePicture}
+              />
+            ) : (
+              <Avatar.Icon 
+                size={100} 
+                icon="account"
+                style={styles.profilePicture}
+                color="#fff"
+              />
+            )}
+            <TouchableOpacity style={styles.editAvatarButton} onPress={handleProfilePictureUpload} disabled={isUploading}>
               <MaterialCommunityIcons name="camera" size={16} color="#fff" />
             </TouchableOpacity>
           </View>
@@ -125,10 +281,12 @@ const ProfileScreen = () => {
               mode="contained"
               style={styles.messageButton}
               labelStyle={styles.messageButtonLabel}
-              onPress={() => {/* Handle message press */}}
-              icon="message-outline"
+              onPress={handleCVUpload}
+              icon="file-upload-outline"
+              loading={isUploading}
+              disabled={isUploading}
             >
-              Message
+              Upload CV
             </Button>
             <IconButton
               icon="share-variant"
@@ -263,6 +421,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
+  },
+  coverImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
   },
   placeholderIcon: {
     opacity: 0.5,
