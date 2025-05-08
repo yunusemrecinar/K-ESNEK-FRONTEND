@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
   View,
   StyleSheet,
@@ -8,14 +8,21 @@ import {
   Platform,
   Image,
   Alert,
+  Modal,
+  FlatList,
 } from 'react-native';
-import { Text, Button, Avatar, Card, Chip, IconButton, Badge, Surface } from 'react-native-paper';
+import { Text, Button, Avatar, Card, Chip, IconButton } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { MaterialCommunityIcons as IconType } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
+import * as MediaLibrary from 'expo-media-library';
 import { fileService } from '../../services/api/files';
+import { employeeService } from '../../services/api/employee';
+import { apiClient } from '../../services/api/client';
+import { AuthContext } from '../../contexts/AuthContext';
+import { EmployeeProfile } from '../../types/profile';
 
 const { width } = Dimensions.get('window');
 
@@ -32,18 +39,24 @@ interface Service {
 }
 
 const ProfileScreen = () => {
+  const { user } = useContext(AuthContext);
   const [showAllReviews, setShowAllReviews] = useState(false);
   const [profilePicture, setProfilePicture] = useState<string | null>(null);
   const [backgroundPicture, setBackgroundPicture] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [profile, setProfile] = useState<EmployeeProfile | null>(null);
+  const [showImagePicker, setShowImagePicker] = useState(false);
+  const [mediaLibraryAssets, setMediaLibraryAssets] = useState<MediaLibrary.Asset[]>([]);
+  const [uploadType, setUploadType] = useState<'profile' | 'background'>('profile');
   
-  const employeeId = 1; // This should come from authentication context or state
-  const rating = 4.9;
+  const userId = user?.id || '0'; // Get user ID from AuthContext or default to 0
+  const rating = profile?.averageRating || 4.9;
 
   const stats: Stat[] = [
-    { label: 'Projects', value: '143', icon: 'briefcase-outline' },
-    { label: 'Reviews', value: '98', icon: 'star-outline' },
-    { label: 'Years', value: '5', icon: 'calendar-outline' },
+    { label: 'Projects', value: profile?.totalProjects?.toString() || '143', icon: 'briefcase-outline' },
+    { label: 'Reviews', value: profile?.totalReviews?.toString() || '98', icon: 'star-outline' },
+    { label: 'Years', value: profile?.yearsOfExperience?.toString() || '5', icon: 'calendar-outline' },
   ];
 
   const services: Service[] = [
@@ -81,106 +94,167 @@ const ProfileScreen = () => {
   ];
   
   useEffect(() => {
-    // In a real app, you would fetch the employee profile data
-    // and check for profilePictureId and backgroundPictureId
+    fetchProfileData();
+  }, [userId]);
+  
+  const fetchProfileData = async () => {
+    if (!userId || userId === '0') return;
     
-    // For demo purposes, if these IDs exist, generate URLs
-    const mockProfilePictureId = null; // In real app: fetch from API
-    const mockBackgroundPictureId = null; // In real app: fetch from API
-    
-    if (mockProfilePictureId) {
-      setProfilePicture(fileService.getFileUrl(mockProfilePictureId));
-    }
-    
-    if (mockBackgroundPictureId) {
-      setBackgroundPicture(fileService.getFileUrl(mockBackgroundPictureId));
-    }
-  }, []);
-
-  const handleProfilePictureUpload = async () => {
     try {
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      setIsLoading(true);
+      const profileData = await employeeService.getEmployeeProfile(userId);
       
-      if (!permission.granted) {
-        Alert.alert('Permission needed', 'Please grant permission to access your photo library');
+      console.log('Fetched profile data:', profileData);
+      setProfile(profileData);
+      
+      // Helper function to ensure URLs are accessible from mobile
+      const makeUrlAccessible = (url: string | null | undefined): string | null => {
+        if (!url) return null;
+        
+        // Replace localhost URLs with ngrok URL
+        if (url.includes('localhost') || url.includes('127.0.0.1')) {
+          return url.replace(/(http|https):\/\/(localhost|127\.0\.0\.1)(:\d+)?/, 'https://1bc9-176-233-31-141.ngrok-free.app');
+        }
+        
+        return url;
+      };
+      
+      // Set profile picture URL if available
+      if (profileData.profilePictureUrl) {
+        const accessibleUrl = makeUrlAccessible(profileData.profilePictureUrl);
+        console.log('Setting profile picture URL:', accessibleUrl);
+        setProfilePicture(accessibleUrl);
+      } else {
+        console.log('No profile picture URL available');
+        setProfilePicture(null);
+      }
+      
+      // Set background picture URL if available
+      if (profileData.backgroundPictureUrl) {
+        const accessibleUrl = makeUrlAccessible(profileData.backgroundPictureUrl);
+        console.log('Setting background picture URL:', accessibleUrl);
+        setBackgroundPicture(accessibleUrl);
+      } else {
+        console.log('No background picture URL available');
+        setBackgroundPicture(null);
+      }
+      
+    } catch (error) {
+      console.error("Error fetching profile:", error);
+      Alert.alert('Error', 'Failed to load profile data');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadMediaLibraryAssets = async () => {
+    try {
+      // Request permissions
+      const { status } = await MediaLibrary.requestPermissionsAsync();
+      
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'Please grant permission to access your media library');
         return;
       }
       
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
+      // Get assets
+      const media = await MediaLibrary.getAssetsAsync({
+        mediaType: MediaLibrary.MediaType.photo,
+        first: 20, // Fetch the 20 most recent photos
+        sortBy: [MediaLibrary.SortBy.creationTime],
       });
       
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        setIsUploading(true);
-        
-        // Get the URI from the first selected asset
-        const uri = result.assets[0].uri;
-        
-        // Create a file from the URI
-        const fileInfo = await fetch(uri);
-        const blob = await fileInfo.blob();
-        const filename = uri.split('/').pop() || 'profile.jpg';
-        const file = new File([blob], filename, { type: 'image/jpeg' });
-        
-        // Upload the file
-        const fileId = await fileService.uploadEmployeeProfilePicture(employeeId, file);
-        
-        // Set the profile picture URL
-        setProfilePicture(fileService.getFileUrl(fileId));
-        
-        setIsUploading(false);
-      }
+      setMediaLibraryAssets(media.assets);
+      setShowImagePicker(true);
     } catch (error) {
-      console.error("Error uploading profile picture:", error);
-      Alert.alert('Upload Error', 'Could not upload profile picture');
+      console.error("Error loading media library assets:", error);
+      Alert.alert('Error', 'Could not load images from your media library');
+    }
+  };
+
+  const selectAndProcessImage = async (asset: MediaLibrary.Asset) => {
+    try {
+      // Get asset info
+      const assetInfo = await MediaLibrary.getAssetInfoAsync(asset.id);
+      
+      // Check if file exists
+      const fileInfo = await FileSystem.getInfoAsync(assetInfo.localUri || asset.uri);
+      if (!fileInfo.exists) {
+        Alert.alert('Error', 'File does not exist');
+        return null;
+      }
+      
+      const uri = assetInfo.localUri || asset.uri;
+      const fileExtension = uri.split('.').pop()?.toLowerCase() || 'jpg';
+      const mimeType = 
+        fileExtension === 'png' ? 'image/png' : 
+        fileExtension === 'gif' ? 'image/gif' : 
+        'image/jpeg';
+      
+      return {
+        uri,
+        name: `image-${Date.now()}.${fileExtension}`,
+        type: mimeType,
+        size: fileInfo.size,
+      };
+    } catch (error) {
+      console.error("Error processing selected image:", error);
+      Alert.alert('Error', 'Could not process the selected image');
+      return null;
+    }
+  };
+
+  const handleAssetSelected = async (asset: MediaLibrary.Asset) => {
+    try {
+      setShowImagePicker(false);
+      setIsUploading(true);
+      
+      const imageFile = await selectAndProcessImage(asset);
+      
+      if (!imageFile) {
+        setIsUploading(false);
+        return;
+      }
+      
+      // Create a FormData object
+      const formData = new FormData();
+      // Append the file to the FormData with the right format for React Native
+      formData.append('file', {
+        uri: imageFile.uri,
+        name: imageFile.name,
+        type: imageFile.type,
+      } as any);
+      
+      let fileId: number;
+      
+      // Handle different upload types
+      if (uploadType === 'profile') {
+        fileId = await fileService.uploadEmployeeProfilePicture(userId, formData);
+        // Don't set direct URL here - wait for refresh
+      } else {
+        fileId = await fileService.uploadEmployeeBackgroundPicture(userId, formData);
+        // Don't set direct URL here - wait for refresh
+      }
+      
+      // Refresh profile data to ensure we have the latest file IDs
+      await fetchProfileData();
+      
+      setIsUploading(false);
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      Alert.alert('Upload Error', 'Could not upload image');
       setIsUploading(false);
     }
   };
+
+  const handleProfilePictureUpload = async () => {
+    setUploadType('profile');
+    await loadMediaLibraryAssets();
+  };
   
   const handleBackgroundPictureUpload = async () => {
-    try {
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      
-      if (!permission.granted) {
-        Alert.alert('Permission needed', 'Please grant permission to access your photo library');
-        return;
-      }
-      
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [16, 9],
-        quality: 0.8,
-      });
-      
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        setIsUploading(true);
-        
-        // Get the URI from the first selected asset
-        const uri = result.assets[0].uri;
-        
-        // Create a file from the URI
-        const fileInfo = await fetch(uri);
-        const blob = await fileInfo.blob();
-        const filename = uri.split('/').pop() || 'background.jpg';
-        const file = new File([blob], filename, { type: 'image/jpeg' });
-        
-        // Upload the file
-        const fileId = await fileService.uploadEmployeeBackgroundPicture(employeeId, file);
-        
-        // Set the background picture URL
-        setBackgroundPicture(fileService.getFileUrl(fileId));
-        
-        setIsUploading(false);
-      }
-    } catch (error) {
-      console.error("Error uploading background picture:", error);
-      Alert.alert('Upload Error', 'Could not upload background picture');
-      setIsUploading(false);
-    }
+    setUploadType('background');
+    await loadMediaLibraryAssets();
   };
   
   const handleCVUpload = async () => {
@@ -195,13 +269,20 @@ const ProfileScreen = () => {
         
         const asset = result.assets[0];
         
-        // Create a file from the URI
-        const fileInfo = await fetch(asset.uri);
-        const blob = await fileInfo.blob();
-        const file = new File([blob], asset.name || 'cv.pdf', { type: asset.mimeType || 'application/pdf' });
+        // Create a FormData object
+        const formData = new FormData();
+        // Append the file to the FormData with the right format for React Native
+        formData.append('file', {
+          uri: asset.uri,
+          name: asset.name || 'cv.pdf',
+          type: asset.mimeType || 'application/pdf',
+        } as any);
         
         // Upload the CV
-        const fileId = await fileService.uploadEmployeeCV(employeeId, file);
+        const fileId = await fileService.uploadEmployeeCV(userId, formData);
+        
+        // Refresh profile data
+        await fetchProfileData();
         
         setIsUploading(false);
         Alert.alert('Success', 'CV uploaded successfully');
@@ -215,13 +296,73 @@ const ProfileScreen = () => {
 
   const displayedReviews = showAllReviews ? reviews : reviews.slice(0, 2);
 
+  const renderImagePickerModal = () => {
+    return (
+      <Modal
+        visible={showImagePicker}
+        animationType="slide"
+        transparent={false}
+        onRequestClose={() => setShowImagePicker(false)}
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text variant="titleLarge">Select an Image</Text>
+            <IconButton
+              icon="close"
+              onPress={() => setShowImagePicker(false)}
+            />
+          </View>
+          
+          <FlatList
+            data={mediaLibraryAssets}
+            keyExtractor={(item) => item.id}
+            numColumns={3}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={styles.imageItem}
+                onPress={() => handleAssetSelected(item)}
+              >
+                <Image
+                  source={{ uri: item.uri }}
+                  style={styles.thumbnailImage}
+                />
+              </TouchableOpacity>
+            )}
+          />
+        </SafeAreaView>
+      </Modal>
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Cover Image */}
         <View style={styles.coverImageContainer}>
-          {backgroundPicture ? (
-            <Image source={{ uri: backgroundPicture }} style={styles.coverImage} />
+          {isLoading ? (
+            <View style={styles.loadingContainer}>
+              <Text>Loading background...</Text>
+            </View>
+          ) : backgroundPicture ? (
+            <>
+              <Image 
+                source={{ uri: backgroundPicture }} 
+                style={styles.coverImage} 
+                onLoad={() => console.log('Background image loaded successfully')}
+                onError={(error) => {
+                  console.error('Failed to load background image:', error.nativeEvent.error);
+                  // Retry with fresh URL after error
+                  if (profile?.backgroundPictureId) {
+                    const freshUrl = `https://1bc9-176-233-31-141.ngrok-free.app/api/files/download/${profile.backgroundPictureId}`;
+                    console.log('Retrying with URL:', freshUrl);
+                    setBackgroundPicture(freshUrl);
+                  }
+                }}
+              />
+              {__DEV__ && <Text style={{ position: 'absolute', top: 10, left: 10, backgroundColor: 'rgba(0,0,0,0.5)', color: 'white', padding: 5, fontSize: 10 }}>
+                URL: {backgroundPicture}
+              </Text>}
+            </>
           ) : (
             <MaterialCommunityIcons name="image" size={32} color="#666" style={styles.placeholderIcon} />
           )}
@@ -234,12 +375,42 @@ const ProfileScreen = () => {
         <View style={styles.profileSection}>
           {/* Profile Picture */}
           <View style={styles.profilePictureContainer}>
-            {profilePicture ? (
-              <Avatar.Image 
+            {isLoading ? (
+              <Avatar.Icon 
                 size={100} 
-                source={{ uri: profilePicture }}
+                icon="refresh"
                 style={styles.profilePicture}
+                color="#fff"
               />
+            ) : profilePicture ? (
+              <>
+                <View>
+                  <Avatar.Image 
+                    size={100} 
+                    source={{ uri: profilePicture }}
+                    style={styles.profilePicture}
+                  />
+                  {/* Use a regular Image component as a "probe" to detect loading errors */}
+                  <Image 
+                    source={{ uri: profilePicture }}
+                    style={{ width: 1, height: 1, opacity: 0 }}
+                    onLoadStart={() => console.log('Starting to load profile picture')}
+                    onError={() => {
+                      console.error('Failed to load profile picture');
+                      // Retry with fresh URL after error
+                      if (profile?.profilePictureId) {
+                        const freshUrl = `https://1bc9-176-233-31-141.ngrok-free.app/api/files/download/${profile.profilePictureId}`;
+                        console.log('Retrying with URL:', freshUrl);
+                        setProfilePicture(freshUrl);
+                      }
+                    }}
+                    onLoadEnd={() => console.log('Finished loading profile picture attempt')}
+                  />
+                </View>
+                {__DEV__ && <Text style={{ position: 'absolute', bottom: -20, left: 0, backgroundColor: 'rgba(0,0,0,0.5)', color: 'white', fontSize: 8, padding: 2 }}>
+                  URL: {profilePicture}
+                </Text>}
+              </>
             ) : (
               <Avatar.Icon 
                 size={100} 
@@ -257,7 +428,7 @@ const ProfileScreen = () => {
           <View style={styles.profileInfo}>
             <View style={styles.nameContainer}>
               <Text variant="headlineMedium" style={styles.name}>
-                Ryan Evans
+                {profile ? `${profile.firstName} ${profile.lastName}` : 'Loading...'}
               </Text>
               <View style={styles.verifiedBadge}>
                 <MaterialCommunityIcons name="check-circle" size={16} color="#fff" />
@@ -271,7 +442,7 @@ const ProfileScreen = () => {
             </View>
             <Text variant="bodyMedium" style={styles.location}>
               <MaterialCommunityIcons name="map-marker" size={16} color="#666" />
-              {' San Francisco, CA'}
+              {profile?.location ? ` ${profile.location}` : ' Location not set'}
             </Text>
           </View>
 
@@ -402,6 +573,9 @@ const ProfileScreen = () => {
           </View>
         </View>
       </ScrollView>
+
+      {/* Image Picker Modal */}
+      {renderImagePickerModal()}
     </SafeAreaView>
   );
 };
@@ -700,6 +874,34 @@ const styles = StyleSheet.create({
   bioText: {
     lineHeight: 20,
     color: '#666',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  imageItem: {
+    width: width / 3 - 8,
+    height: width / 3 - 8,
+    margin: 4,
+  },
+  thumbnailImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+    borderRadius: 4,
   },
 });
 

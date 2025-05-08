@@ -12,16 +12,13 @@ interface FileUploadResponse {
 export const fileService = {
   /**
    * Upload an employee profile picture
-   * @param employeeId Employee ID
-   * @param file File to upload
+   * @param userId User ID
+   * @param formData FormData containing the file to upload
    * @returns File blob ID
    */
-  uploadEmployeeProfilePicture: async (employeeId: number, file: File): Promise<number> => {
-    const formData = new FormData();
-    formData.append('file', file);
-    
+  uploadEmployeeProfilePicture: async (userId: number | string, formData: FormData): Promise<number> => {
     const response = await apiClient.instance.post<FileUploadResponse>(
-      `/employee-profile/upload/profile-picture/${employeeId}`,
+      `/employee-profile/upload/profile-picture/${userId}`,
       formData,
       {
         headers: {
@@ -35,16 +32,13 @@ export const fileService = {
   
   /**
    * Upload an employee background picture
-   * @param employeeId Employee ID
-   * @param file File to upload
+   * @param userId User ID
+   * @param formData FormData containing the file to upload
    * @returns File blob ID
    */
-  uploadEmployeeBackgroundPicture: async (employeeId: number, file: File): Promise<number> => {
-    const formData = new FormData();
-    formData.append('file', file);
-    
+  uploadEmployeeBackgroundPicture: async (userId: number | string, formData: FormData): Promise<number> => {
     const response = await apiClient.instance.post<FileUploadResponse>(
-      `/employee-profile/upload/background-picture/${employeeId}`,
+      `/employee-profile/upload/background-picture/${userId}`,
       formData,
       {
         headers: {
@@ -58,16 +52,13 @@ export const fileService = {
   
   /**
    * Upload an employee CV
-   * @param employeeId Employee ID
-   * @param file File to upload
+   * @param userId User ID
+   * @param formData FormData containing the file to upload
    * @returns File blob ID
    */
-  uploadEmployeeCV: async (employeeId: number, file: File): Promise<number> => {
-    const formData = new FormData();
-    formData.append('file', file);
-    
+  uploadEmployeeCV: async (userId: number | string, formData: FormData): Promise<number> => {
     const response = await apiClient.instance.post<FileUploadResponse>(
-      `/employee-profile/upload/cv/${employeeId}`,
+      `/employee-profile/upload/cv/${userId}`,
       formData,
       {
         headers: {
@@ -82,13 +73,10 @@ export const fileService = {
   /**
    * Upload an employer profile picture
    * @param employerId Employer ID
-   * @param file File to upload
+   * @param formData FormData containing the file to upload
    * @returns File blob ID
    */
-  uploadEmployerProfilePicture: async (employerId: number, file: File): Promise<number> => {
-    const formData = new FormData();
-    formData.append('file', file);
-    
+  uploadEmployerProfilePicture: async (employerId: number, formData: FormData): Promise<number> => {
     const response = await apiClient.instance.post<FileUploadResponse>(
       `/employer-profile/upload/profile-picture/${employerId}`,
       formData,
@@ -105,13 +93,10 @@ export const fileService = {
   /**
    * Upload an employer background picture
    * @param employerId Employer ID
-   * @param file File to upload
+   * @param formData FormData containing the file to upload
    * @returns File blob ID
    */
-  uploadEmployerBackgroundPicture: async (employerId: number, file: File): Promise<number> => {
-    const formData = new FormData();
-    formData.append('file', file);
-    
+  uploadEmployerBackgroundPicture: async (employerId: number, formData: FormData): Promise<number> => {
     const response = await apiClient.instance.post<FileUploadResponse>(
       `/employer-profile/upload/background-picture/${employerId}`,
       formData,
@@ -131,6 +116,8 @@ export const fileService = {
    * @returns URL to download the file
    */
   getFileUrl: (fileId: number): string => {
-    return `${apiClient.instance.defaults.baseURL}/files/download/${fileId}`;
+    // Use ngrok URL instead of localhost for direct file access
+    const ngrokBaseUrl = 'https://1bc9-176-233-31-141.ngrok-free.app';
+    return `${ngrokBaseUrl}/api/files/download/${fileId}`;
   }
 }; 
