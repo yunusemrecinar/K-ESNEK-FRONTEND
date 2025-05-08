@@ -30,4 +30,33 @@ export interface EmployeeProfile extends UserProfile {
   // CV reference
   cvId?: number;
   cvUrl?: string;
+}
+
+/**
+ * Employer profile data interface
+ */
+export interface EmployerProfile extends UserProfile {
+  // Company information
+  name: string;
+  description: string;
+  industry: string;
+  size: string;
+  website?: string;
+  email?: string;
+  
+  // User stats summary
+  stats?: {
+    totalJobsPosted: number;
+    activeJobs: number;
+    totalApplications: number;
+    averageResponseTime: number;
+  };
+  
+  // Profile picture reference
+  profilePictureId?: number;
+  profilePictureUrl?: string;
+  
+  // Background picture reference
+  backgroundPictureId?: number;
+  backgroundPictureUrl?: string;
 } 

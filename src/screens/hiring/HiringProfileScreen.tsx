@@ -1,8 +1,14 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect, useContext } from 'react';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal, FlatList, Image } from 'react-native';
 import { Text, Avatar, Button, Card, useTheme, TextInput, Switch } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import * as MediaLibrary from 'expo-media-library';
+import * as FileSystem from 'expo-file-system';
+import { fileService } from '../../services/api/files';
+import { employerService } from '../../services/api/employer';
+import { AuthContext } from '../../contexts/AuthContext';
+import { EmployerProfile } from '../../types/profile';
 
 interface CompanyProfile {
   name: string;
@@ -14,11 +20,22 @@ interface CompanyProfile {
   email: string;
   phone: string;
   notificationsEnabled: boolean;
+  profilePictureId?: number;
+  profilePictureUrl?: string;
 }
 
 const HiringProfileScreen = () => {
   const theme = useTheme();
+  const { user } = useContext(AuthContext);
   const [isEditing, setIsEditing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isUploading, setIsUploading] = useState(false);
+  const [showImagePicker, setShowImagePicker] = useState(false);
+  const [mediaLibraryAssets, setMediaLibraryAssets] = useState<MediaLibrary.Asset[]>([]);
+  const [profilePicture, setProfilePicture] = useState<string | null>(null);
+  const [uploadType, setUploadType] = useState<'profile'>('profile');
+  
+  // Store the profile data
   const [profile, setProfile] = useState<CompanyProfile>({
     name: 'Acme Corporation',
     description: 'Leading technology company specializing in innovative solutions',
@@ -30,11 +47,235 @@ const HiringProfileScreen = () => {
     phone: '+1 (555) 123-4567',
     notificationsEnabled: true,
   });
+  
+  const userId = user?.id || '0';
 
-  const handleSave = () => {
-    // Save profile changes
-    setIsEditing(false);
+  useEffect(() => {
+    fetchProfileData();
+  }, [userId]);
+
+  const fetchProfileData = async () => {
+    if (!userId || userId === '0') return;
+    
+    try {
+      setIsLoading(true);
+      const profileData = await employerService.getEmployerProfile(userId);
+      
+      console.log('Fetched employer profile data:', profileData);
+      
+      // Transform the API data to match our local profile structure
+      setProfile({
+        name: profileData.name || 'Company Name',
+        description: profileData.description || 'Company Description',
+        website: profileData.website || '',
+        location: profileData.location || '',
+        industry: profileData.industry || '',
+        size: profileData.size || '',
+        email: profileData.email || '',
+        phone: profileData.phoneNumber || '',
+        notificationsEnabled: true, // Default value since this might not be part of the API
+        profilePictureId: profileData.profilePictureId,
+        profilePictureUrl: profileData.profilePictureUrl
+      });
+      
+      // Helper function to ensure URLs are accessible from mobile
+      const makeUrlAccessible = (url: string | null | undefined): string | null => {
+        if (!url) return null;
+        
+        // Replace localhost URLs with ngrok URL
+        if (url.includes('localhost') || url.includes('127.0.0.1')) {
+          return url.replace(/(http|https):\/\/(localhost|127\.0\.0\.1)(:\d+)?/, 'https://1bc9-176-233-31-141.ngrok-free.app');
+        }
+        
+        return url;
+      };
+      
+      // Set profile picture URL if available
+      if (profileData.profilePictureUrl) {
+        const accessibleUrl = makeUrlAccessible(profileData.profilePictureUrl);
+        console.log('Setting profile picture URL:', accessibleUrl);
+        setProfilePicture(accessibleUrl);
+      } else if (profileData.profilePictureId) {
+        // If we have an ID but no URL, construct the URL directly
+        const directUrl = `https://1bc9-176-233-31-141.ngrok-free.app/api/files/download/${profileData.profilePictureId}`;
+        console.log('Constructing profile picture URL from ID:', directUrl);
+        setProfilePicture(directUrl);
+      } else {
+        console.log('No profile picture URL or ID available');
+        setProfilePicture(null);
+      }
+      
+    } catch (error) {
+      console.error("Error fetching profile:", error);
+      Alert.alert('Error', 'Failed to load profile data');
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+  const handleSave = async () => {
+    if (!userId || userId === '0') {
+      Alert.alert('Error', 'User ID not found');
+      return;
+    }
+    
+    try {
+      // Transform local profile structure to API structure
+      const apiProfile = {
+        EmployerId: parseInt(userId),
+        firstName: user?.fullName?.split(' ')[0] || 'First',
+        lastName: user?.fullName?.split(' ')[1] || 'Last',
+        phoneNumber: profile.phone,
+        location: profile.location,
+        name: profile.name,
+        description: profile.description,
+        industry: profile.industry,
+        size: profile.size,
+        website: profile.website,
+        email: profile.email,
+      };
+      
+      // Save profile changes to the backend
+      await employerService.updateEmployerProfile(userId, apiProfile);
+      
+      // Refresh profile data to ensure we have the latest
+      await fetchProfileData();
+      
+      setIsEditing(false);
+      Alert.alert('Success', 'Profile updated successfully');
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      Alert.alert('Error', 'Failed to update profile');
+    }
+  };
+  
+  const loadMediaLibraryAssets = async () => {
+    try {
+      // Request permissions
+      const { status } = await MediaLibrary.requestPermissionsAsync();
+      
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'Please grant permission to access your media library');
+        return;
+      }
+      
+      // Get assets
+      const media = await MediaLibrary.getAssetsAsync({
+        mediaType: MediaLibrary.MediaType.photo,
+        first: 20, // Fetch the 20 most recent photos
+        sortBy: [MediaLibrary.SortBy.creationTime],
+      });
+      
+      setMediaLibraryAssets(media.assets);
+      setShowImagePicker(true);
+    } catch (error) {
+      console.error("Error loading media library assets:", error);
+      Alert.alert('Error', 'Could not load images from your media library');
+    }
+  };
+
+  const selectAndProcessImage = async (asset: MediaLibrary.Asset) => {
+    try {
+      // Get asset info
+      const assetInfo = await MediaLibrary.getAssetInfoAsync(asset.id);
+      
+      // Check if file exists
+      const fileInfo = await FileSystem.getInfoAsync(assetInfo.localUri || asset.uri);
+      if (!fileInfo.exists) {
+        Alert.alert('Error', 'File does not exist');
+        return null;
+      }
+      
+      const uri = assetInfo.localUri || asset.uri;
+      const fileExtension = uri.split('.').pop()?.toLowerCase() || 'jpg';
+      const mimeType = 
+        fileExtension === 'png' ? 'image/png' : 
+        fileExtension === 'gif' ? 'image/gif' : 
+        'image/jpeg';
+      
+      return {
+        uri,
+        name: `image-${Date.now()}.${fileExtension}`,
+        type: mimeType,
+        size: fileInfo.size,
+      };
+    } catch (error) {
+      console.error("Error processing selected image:", error);
+      Alert.alert('Error', 'Could not process the selected image');
+      return null;
+    }
+  };
+
+  const handleAssetSelected = async (asset: MediaLibrary.Asset) => {
+    try {
+      setShowImagePicker(false);
+      setIsUploading(true);
+      
+      const imageFile = await selectAndProcessImage(asset);
+      
+      if (!imageFile) {
+        setIsUploading(false);
+        return;
+      }
+      
+      // Create a FormData object
+      const formData = new FormData();
+      // Append the file to the FormData with the right format for React Native
+      formData.append('file', {
+        uri: imageFile.uri,
+        name: imageFile.name,
+        type: imageFile.type,
+      } as any);
+      
+      // Upload the profile picture
+      const fileId = await fileService.uploadEmployerProfilePicture(parseInt(userId), formData);
+      
+      // Refresh profile data to ensure we have the latest file IDs
+      await fetchProfileData();
+      
+      setIsUploading(false);
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      Alert.alert('Upload Error', 'Could not upload image');
+      setIsUploading(false);
+    }
+  };
+
+  const handleProfilePictureUpload = async () => {
+    await loadMediaLibraryAssets();
+  };
+  
+  const renderImagePickerModal = () => (
+    <Modal
+      animationType="slide"
+      transparent={false}
+      visible={showImagePicker}
+      onRequestClose={() => setShowImagePicker(false)}
+    >
+      <SafeAreaView style={styles.modalContainer}>
+        <View style={styles.modalHeader}>
+          <Text variant="headlineSmall">Select a Photo</Text>
+          <Button onPress={() => setShowImagePicker(false)}>Close</Button>
+        </View>
+        <FlatList
+          data={mediaLibraryAssets}
+          keyExtractor={(item) => item.id}
+          numColumns={3}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={styles.imageItem}
+              onPress={() => handleAssetSelected(item)}
+            >
+              <Image
+                source={{ uri: item.uri }}
+                style={styles.thumbnailImage}
+              />
+            </TouchableOpacity>
+          )}
+        />
+      </SafeAreaView>
+    </Modal>
+  );
 
   const stats = [
     { label: 'Active Jobs', value: '12' },
@@ -44,13 +285,60 @@ const HiringProfileScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
+      {renderImagePickerModal()}
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <View style={styles.avatarContainer}>
-            <Avatar.Image
-              size={100}
-              source={{ uri: 'https://via.placeholder.com/100' }}
-            />
+            <TouchableOpacity onPress={handleProfilePictureUpload}>
+              {isLoading ? (
+                <Avatar.Icon 
+                  size={100} 
+                  icon="refresh"
+                  color="#fff"
+                  style={{backgroundColor: '#6C63FF'}}
+                />
+              ) : profilePicture ? (
+                <>
+                  <Avatar.Image
+                    size={100}
+                    source={{ uri: profilePicture }}
+                  />
+                  {/* Use a regular Image component as a "probe" to detect loading errors */}
+                  <Image 
+                    source={{ uri: profilePicture }}
+                    style={{ width: 1, height: 1, opacity: 0 }}
+                    onLoadStart={() => console.log('Starting to load profile picture')}
+                    onError={() => {
+                      console.error('Failed to load profile picture');
+                      // Retry with fresh URL after error
+                      if (profile?.profilePictureId) {
+                        const freshUrl = `https://1bc9-176-233-31-141.ngrok-free.app/api/files/download/${profile.profilePictureId}`;
+                        console.log('Retrying with URL:', freshUrl);
+                        setProfilePicture(freshUrl);
+                      } else if (profilePicture?.includes('/api/files/download/')) {
+                        // Try to extract ID from the URL and retry with fresh URL
+                        const idMatch = profilePicture.match(/\/api\/files\/download\/(\d+)/);
+                        if (idMatch && idMatch[1]) {
+                          const freshUrl = `https://1bc9-176-233-31-141.ngrok-free.app/api/files/download/${idMatch[1]}`;
+                          console.log('Retrying with extracted ID URL:', freshUrl);
+                          setProfilePicture(freshUrl);
+                        }
+                      }
+                    }}
+                    onLoadEnd={() => console.log('Finished loading profile picture attempt')}
+                  />
+                </>
+              ) : (
+                <Avatar.Text 
+                  size={100} 
+                  label={profile.name.substring(0, 2).toUpperCase()}
+                  style={{backgroundColor: '#6C63FF'}}
+                />
+              )}
+              <View style={styles.profileImageOverlay}>
+                <Ionicons name="camera" size={24} color="white" />
+              </View>
+            </TouchableOpacity>
             {!isEditing && (
               <TouchableOpacity
                 style={styles.editButton}
@@ -311,6 +599,35 @@ const styles = StyleSheet.create({
   },
   button: {
     flex: 1,
+  },
+  profileImageOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 20,
+    padding: 6,
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  imageItem: {
+    flex: 1/3,
+    aspectRatio: 1,
+    padding: 2,
+  },
+  thumbnailImage: {
+    flex: 1,
+    borderRadius: 4,
   },
 });
 
