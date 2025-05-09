@@ -13,7 +13,14 @@ try {
 
 // Determine the API base URL
 const getApiBaseUrl = () => {
+  // Override with ngrok URL for development when needed
   if (__DEV__) {
+    // Use ngrok URL for direct testing
+    const useNgrok = true; // Toggle this when needed
+    if (useNgrok) {
+      return 'https://42c6-176-233-28-176.ngrok-free.app/api';
+    }
+    
     // For iOS simulators, use localhost
     if (Platform.OS === 'ios') {
       return 'http://localhost:5260/api';
@@ -44,6 +51,13 @@ axiosInstance.interceptors.request.use(
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    
+    // Debug log for request URLs in development
+    if (__DEV__) {
+      const fullUrl = `${config.baseURL}${config.url}`;
+      console.log(`🌐 API Request to: ${config.method?.toUpperCase()} ${fullUrl}`);
+    }
+    
     return config;
   },
   (error) => {

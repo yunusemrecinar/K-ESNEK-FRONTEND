@@ -17,17 +17,27 @@ export const fileService = {
    * @returns File blob ID
    */
   uploadEmployeeProfilePicture: async (userId: number | string, formData: FormData): Promise<number> => {
-    const response = await apiClient.instance.post<FileUploadResponse>(
-      `/employee-profile/upload/profile-picture/${userId}`,
-      formData,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      }
-    );
-    
-    return response.data.data;
+    try {
+      console.log(`📤 Uploading profile picture for user ${userId}`);
+      const endpoint = `/employee-profile/upload/profile-picture/${userId}`;
+      console.log(`🔗 Endpoint: ${endpoint}`);
+      
+      const response = await apiClient.instance.post<FileUploadResponse>(
+        endpoint,
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      );
+      
+      console.log(`✅ Upload success, File ID: ${response.data.data}`);
+      return response.data.data;
+    } catch (error) {
+      console.error('❌ Profile picture upload failed:', error);
+      throw error;
+    }
   },
   
   /**
@@ -37,17 +47,27 @@ export const fileService = {
    * @returns File blob ID
    */
   uploadEmployeeBackgroundPicture: async (userId: number | string, formData: FormData): Promise<number> => {
-    const response = await apiClient.instance.post<FileUploadResponse>(
-      `/employee-profile/upload/background-picture/${userId}`,
-      formData,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      }
-    );
-    
-    return response.data.data;
+    try {
+      console.log(`📤 Uploading background picture for user ${userId}`);
+      const endpoint = `/employee-profile/upload/background-picture/${userId}`;
+      console.log(`🔗 Endpoint: ${endpoint}`);
+      
+      const response = await apiClient.instance.post<FileUploadResponse>(
+        endpoint,
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      );
+      
+      console.log(`✅ Upload success, File ID: ${response.data.data}`);
+      return response.data.data;
+    } catch (error) {
+      console.error('❌ Background picture upload failed:', error);
+      throw error;
+    }
   },
   
   /**

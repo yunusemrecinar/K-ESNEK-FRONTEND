@@ -10,6 +10,7 @@ import {
   Alert,
   Modal,
   FlatList,
+  TextInput,
 } from 'react-native';
 import { Text, Button, Avatar, Card, Chip, IconButton } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -22,7 +23,7 @@ import { fileService } from '../../services/api/files';
 import { employeeService } from '../../services/api/employee';
 import { apiClient } from '../../services/api/client';
 import { AuthContext } from '../../contexts/AuthContext';
-import { EmployeeProfile } from '../../types/profile';
+import { EmployeeProfile, EmployeeService } from '../../types/profile';
 
 const { width } = Dimensions.get('window');
 
@@ -45,10 +46,20 @@ const ProfileScreen = () => {
   const [backgroundPicture, setBackgroundPicture] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [profile, setProfile] = useState<EmployeeProfile | null>(null);
   const [showImagePicker, setShowImagePicker] = useState(false);
   const [mediaLibraryAssets, setMediaLibraryAssets] = useState<MediaLibrary.Asset[]>([]);
   const [uploadType, setUploadType] = useState<'profile' | 'background'>('profile');
+  
+  // Edit mode state
+  const [isEditingBio, setIsEditingBio] = useState(false);
+  const [editedBio, setEditedBio] = useState<string>('');
+  const [isEditingServices, setIsEditingServices] = useState(false);
+  const [editedServices, setEditedServices] = useState<EmployeeService[]>([]);
+  const [serviceModalVisible, setServiceModalVisible] = useState(false);
+  const [currentService, setCurrentService] = useState<EmployeeService | null>(null);
+  const [serviceEditIndex, setServiceEditIndex] = useState<number | null>(null);
   
   const userId = user?.id || '0'; // Get user ID from AuthContext or default to 0
   const rating = profile?.averageRating || 4.9;
@@ -59,12 +70,18 @@ const ProfileScreen = () => {
     { label: 'Years', value: profile?.yearsOfExperience?.toString() || '5', icon: 'calendar-outline' },
   ];
 
-  const services: Service[] = [
+  // Initialize default services
+  const defaultServices: EmployeeService[] = [
     { name: 'Pet Walking', price: '$20/hr', icon: 'dog-side' },
     { name: 'Pet Sitting', price: '$50/day', icon: 'home' },
     { name: 'Pet Training', price: '$40/hr', icon: 'school' },
     { name: 'Pet Grooming', price: '$35/session', icon: 'scissors-cutting' },
   ];
+
+  // Ensure services is an array by handling when it might be a string
+  const services = Array.isArray(profile?.services) 
+    ? profile.services 
+    : defaultServices;
 
   const reviews = [
     {
@@ -105,6 +122,17 @@ const ProfileScreen = () => {
       const profileData = await employeeService.getEmployeeProfile(userId);
       
       console.log('Fetched profile data:', profileData);
+      
+      // If services data is provided as JSON string, parse it
+      if (profileData.services && typeof profileData.services === 'string') {
+        try {
+          profileData.services = JSON.parse(profileData.services) as EmployeeService[];
+        } catch (error) {
+          console.error('Error parsing services JSON:', error);
+          profileData.services = []; // Set default empty array if parsing fails
+        }
+      }
+      
       setProfile(profileData);
       
       // Helper function to ensure URLs are accessible from mobile
@@ -334,6 +362,199 @@ const ProfileScreen = () => {
     );
   };
 
+  // Handle bio update
+  const handleBioEdit = () => {
+    setEditedBio(profile?.bio || 'Professional pet sitter with over 5 years of experience. Specialized in dog walking, pet sitting, and basic training. Certified in pet first aid and CPR.');
+    setIsEditingBio(true);
+  };
+  
+  const handleBioSave = async () => {
+    if (!profile || !userId) return;
+    
+    try {
+      setIsSaving(true);
+      
+      // Update the profile with the new bio
+      await employeeService.updateEmployeeProfile(userId, {
+        bio: editedBio
+      });
+      
+      // Update the local profile data
+      setProfile({
+        ...profile,
+        bio: editedBio
+      });
+      
+      setIsEditingBio(false);
+    } catch (error) {
+      console.error('Error updating bio:', error);
+      Alert.alert('Error', 'Failed to update bio');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+  
+  const handleBioCancel = () => {
+    setIsEditingBio(false);
+  };
+
+  // Service editing functions
+  const handleServicesEdit = () => {
+    setEditedServices(JSON.parse(JSON.stringify(services)));
+    setIsEditingServices(true);
+  };
+
+  const handleServicesSave = async () => {
+    if (!profile || !userId) return;
+    
+    try {
+      setIsSaving(true);
+      
+      // Stringify services for API
+      const servicesJson = JSON.stringify(editedServices);
+      
+      // Update the profile with the new services
+      await employeeService.updateEmployeeProfile(userId, {
+        services: servicesJson
+      });
+      
+      // Update the local profile data with the edited services array (not the JSON string)
+      setProfile({
+        ...profile,
+        services: editedServices
+      });
+      
+      setIsEditingServices(false);
+    } catch (error) {
+      console.error('Error updating services:', error);
+      Alert.alert('Error', 'Failed to update services');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+  
+  const handleServicesCancel = () => {
+    setIsEditingServices(false);
+  };
+  
+  const addService = () => {
+    setCurrentService({ name: '', price: '', icon: 'briefcase-outline' });
+    setServiceEditIndex(null);
+    setServiceModalVisible(true);
+  };
+  
+  const editService = (index: number) => {
+    setCurrentService(editedServices[index]);
+    setServiceEditIndex(index);
+    setServiceModalVisible(true);
+  };
+  
+  const deleteService = (index: number) => {
+    const updatedServices = [...editedServices];
+    updatedServices.splice(index, 1);
+    setEditedServices(updatedServices);
+  };
+  
+  const saveService = () => {
+    if (!currentService) return;
+    
+    const updatedServices = [...editedServices];
+    
+    if (serviceEditIndex !== null) {
+      // Edit existing service
+      updatedServices[serviceEditIndex] = currentService;
+    } else {
+      // Add new service
+      updatedServices.push(currentService);
+    }
+    
+    setEditedServices(updatedServices);
+    setServiceModalVisible(false);
+  };
+
+  const renderServiceModal = () => {
+    return (
+      <Modal
+        visible={serviceModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setServiceModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.serviceModalContainer}>
+            <View style={styles.modalHeader}>
+              <Text variant="titleLarge" style={styles.modalTitle}>
+                {serviceEditIndex !== null ? 'Edit Service' : 'Add Service'}
+              </Text>
+              <IconButton
+                icon="close"
+                onPress={() => setServiceModalVisible(false)}
+              />
+            </View>
+            
+            <View style={styles.serviceForm}>
+              <Text variant="labelLarge" style={styles.formLabel}>Service Name</Text>
+              <TextInput
+                style={styles.serviceInput}
+                value={currentService?.name}
+                onChangeText={(text) => setCurrentService({ ...currentService!, name: text })}
+                placeholder="e.g. Dog Walking"
+                placeholderTextColor="#999"
+              />
+              
+              <Text variant="labelLarge" style={styles.formLabel}>Price</Text>
+              <TextInput
+                style={styles.serviceInput}
+                value={currentService?.price}
+                onChangeText={(text) => setCurrentService({ ...currentService!, price: text })}
+                placeholder="e.g. $20/hr"
+                placeholderTextColor="#999"
+              />
+              
+              <Text variant="labelLarge" style={styles.formLabel}>Select an Icon</Text>
+              <View style={styles.iconSelector}>
+                {['dog-side', 'home', 'school', 'scissors-cutting', 'paw', 'food-bowl', 'cat', 'bird', 'walk', 'car', 'human-handsup', 'toy-brick'].map((icon) => (
+                  <TouchableOpacity
+                    key={icon}
+                    style={[
+                      styles.iconItem,
+                      currentService?.icon === icon && styles.selectedIconItem
+                    ]}
+                    onPress={() => setCurrentService({ ...currentService!, icon })}
+                  >
+                    <MaterialCommunityIcons 
+                      name={icon as any} 
+                      size={24} 
+                      color={currentService?.icon === icon ? '#fff' : '#555'} 
+                    />
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+            
+            <View style={styles.modalActions}>
+              <Button 
+                mode="outlined" 
+                onPress={() => setServiceModalVisible(false)}
+                style={styles.modalButton}
+              >
+                Cancel
+              </Button>
+              <Button 
+                mode="contained" 
+                onPress={saveService}
+                style={styles.modalButtonPrimary}
+                disabled={!currentService?.name || !currentService?.price}
+              >
+                Save
+              </Button>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -490,10 +711,39 @@ const ProfileScreen = () => {
               <View style={styles.sectionTitleContainer}>
                 <MaterialCommunityIcons name="account-details" size={24} color="#333" />
                 <Text variant="titleMedium" style={styles.sectionTitle}>About</Text>
+                <View style={{ flex: 1 }} />
+                <IconButton
+                  icon={isEditingBio ? "check" : "pencil"}
+                  size={20}
+                  onPress={isEditingBio ? handleBioSave : handleBioEdit}
+                  loading={isSaving && isEditingBio}
+                  disabled={isSaving}
+                />
+                {isEditingBio && (
+                  <IconButton
+                    icon="close"
+                    size={20}
+                    onPress={handleBioCancel}
+                    disabled={isSaving}
+                  />
+                )}
               </View>
-              <Text variant="bodyMedium" style={styles.bioText}>
-                Professional pet sitter with over 5 years of experience. Specialized in dog walking, pet sitting, and basic training. Certified in pet first aid and CPR.
-              </Text>
+              
+              {isEditingBio ? (
+                <TextInput
+                  multiline
+                  numberOfLines={4}
+                  style={styles.bioTextInput}
+                  value={editedBio}
+                  onChangeText={setEditedBio}
+                  placeholder="Describe yourself and your professional experience..."
+                />
+              ) : (
+                <Text variant="bodyMedium" style={styles.bioText}>
+                  {profile?.bio || 'Professional pet sitter with over 5 years of experience. Specialized in dog walking, pet sitting, and basic training. Certified in pet first aid and CPR.'}
+                </Text>
+              )}
+              
               <View style={styles.certificatesContainer}>
                 <Chip icon="certificate" style={styles.certificateChip}>Pet First Aid</Chip>
                 <Chip icon="certificate" style={styles.certificateChip}>CPR Certified</Chip>
@@ -506,26 +756,108 @@ const ProfileScreen = () => {
             <View style={styles.sectionTitleContainer}>
               <MaterialCommunityIcons name="briefcase-outline" size={24} color="#333" />
               <Text variant="titleMedium" style={styles.sectionTitle}>Services</Text>
+              <View style={{ flex: 1 }} />
+              
+              {isEditingServices ? (
+                <>
+                  <IconButton
+                    icon="plus"
+                    size={20}
+                    onPress={addService}
+                    disabled={isSaving}
+                  />
+                  <IconButton
+                    icon="check"
+                    size={20}
+                    onPress={handleServicesSave}
+                    loading={isSaving && isEditingServices}
+                    disabled={isSaving}
+                  />
+                  <IconButton
+                    icon="close"
+                    size={20}
+                    onPress={handleServicesCancel}
+                    disabled={isSaving}
+                  />
+                </>
+              ) : (
+                <IconButton
+                  icon="pencil"
+                  size={20}
+                  onPress={handleServicesEdit}
+                />
+              )}
             </View>
-            <ScrollView 
-              horizontal 
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.servicesScrollContent}
-            >
-              {services.map((service) => (
-                <Card key={service.name} style={styles.serviceCard}>
-                  <Card.Content style={styles.serviceCardContent}>
-                    <MaterialCommunityIcons name={service.icon} size={32} color="#6C63FF" />
-                    <Text variant="titleMedium" style={styles.serviceTitle}>
-                      {service.name}
-                    </Text>
-                    <Text variant="bodyLarge" style={styles.servicePrice}>
-                      {service.price}
-                    </Text>
-                  </Card.Content>
-                </Card>
-              ))}
-            </ScrollView>
+            
+            {isEditingServices ? (
+              <View style={styles.editServicesContainer}>
+                {editedServices.map((service, index) => (
+                  <Card key={index} style={styles.serviceCardEditing}>
+                    <Card.Content>
+                      <View style={styles.serviceEditHeader}>
+                        <View style={styles.serviceIconContainer}>
+                          <MaterialCommunityIcons name={service.icon as any} size={24} color="#fff" />
+                        </View>
+                        <View style={styles.serviceEditInfo}>
+                          <Text variant="titleSmall" style={styles.serviceEditName}>{service.name}</Text>
+                          <Text variant="bodySmall" style={styles.serviceEditPrice}>{service.price}</Text>
+                        </View>
+                        <View style={styles.serviceEditActions}>
+                          <IconButton
+                            icon="pencil"
+                            size={16}
+                            mode="contained-tonal"
+                            containerColor="rgba(108, 99, 255, 0.1)"
+                            iconColor="#6C63FF"
+                            onPress={() => editService(index)}
+                          />
+                          <IconButton
+                            icon="delete"
+                            size={16}
+                            mode="contained-tonal"
+                            containerColor="rgba(244, 67, 54, 0.1)"
+                            iconColor="#F44336"
+                            onPress={() => deleteService(index)}
+                          />
+                        </View>
+                      </View>
+                    </Card.Content>
+                  </Card>
+                ))}
+                {editedServices.length === 0 && (
+                  <View style={styles.emptyServicesContainer}>
+                    <MaterialCommunityIcons name="briefcase-outline" size={48} color="#CCCCCC" />
+                    <Text variant="bodyLarge" style={styles.emptyServicesText}>No services yet</Text>
+                    <Text variant="bodySmall" style={styles.emptyServicesSubtext}>Tap + to add your first service</Text>
+                  </View>
+                )}
+              </View>
+            ) : (
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.servicesScrollContent}
+              >
+                {services.map((service, index) => (
+                  <Card key={index} style={styles.serviceCardNew}>
+                    <View style={styles.serviceCardContent}>
+                      <View style={styles.serviceIconBadge}>
+                        <MaterialCommunityIcons name={service.icon as any} size={24} color="#fff" />
+                      </View>
+                      <Text variant="titleMedium" style={styles.serviceTitle}>
+                        {service.name}
+                      </Text>
+                      <View style={styles.servicePriceContainer}>
+                        <Text style={styles.currencySymbol}>$</Text>
+                        <Text variant="bodyLarge" style={styles.servicePrice}>
+                          {service.price.replace(/^\$/, '')}
+                        </Text>
+                      </View>
+                    </View>
+                  </Card>
+                ))}
+              </ScrollView>
+            )}
           </View>
 
           {/* Reviews Section */}
@@ -576,6 +908,9 @@ const ProfileScreen = () => {
 
       {/* Image Picker Modal */}
       {renderImagePickerModal()}
+      
+      {/* Service Edit Modal */}
+      {renderServiceModal()}
     </SafeAreaView>
   );
 };
@@ -766,13 +1101,83 @@ const styles = StyleSheet.create({
   servicesSection: {
     width: '100%',
     marginBottom: 24,
+    padding: 16,
+    paddingBottom: 24,
+    borderRadius: 16,
   },
   servicesScrollContent: {
-    paddingRight: 20,
+    paddingRight: 16,
+    paddingBottom: 8,
   },
-  serviceCard: {
-    width: 160,
-    marginRight: 12,
+  serviceCardNew: {
+    width: 200,
+    height: 190,
+    marginRight: 16,
+    marginBottom: 8,
+    borderRadius: 20,
+    backgroundColor: '#F7F7FF',
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#5D5FEF',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  serviceCardContent: {
+    padding: 20,
+    paddingBottom: 16,
+    alignItems: 'flex-start',
+    height: '100%',
+    position: 'relative',
+  },
+  serviceIconBadge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    height: 48,
+    width: 48,
+    borderBottomLeftRadius: 16,
+    backgroundColor: '#6C63FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  serviceTitle: {
+    fontWeight: '600',
+    marginTop: 50,
+    marginBottom: 8,
+    color: '#333',
+    fontSize: 18,
+  },
+  servicePriceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 'auto',
+    paddingTop: 8,
+    paddingBottom: 4,
+  },
+  currencySymbol: {
+    color: '#6C63FF',
+    fontSize: 16,
+    fontWeight: '600',
+    marginRight: 2,
+  },
+  servicePrice: {
+    color: '#6C63FF',
+    fontWeight: '600',
+    fontSize: 18,
+  },
+  editServicesContainer: {
+    width: '100%',
+    marginBottom: 16,
+  },
+  serviceCardEditing: {
+    marginBottom: 12,
     borderRadius: 12,
     ...Platform.select({
       ios: {
@@ -782,25 +1187,184 @@ const styles = StyleSheet.create({
         shadowRadius: 8,
       },
       android: {
-        elevation: 4,
+        elevation: 2,
       },
     }),
   },
-  serviceCardContent: {
+  serviceEditHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  serviceIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#6C63FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  serviceEditInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  serviceEditName: {
+    fontWeight: '600',
+    color: '#333',
+  },
+  serviceEditPrice: {
+    color: '#6C63FF',
+    marginTop: 2,
+  },
+  serviceEditActions: {
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  serviceTitle: {
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  servicePrice: {
-    color: '#6C63FF',
-    fontWeight: '600',
-  },
-  reviewsSection: {
+  emptyServicesContainer: {
     width: '100%',
-    marginBottom: 24,
+    height: 150,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F8F9FF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#EEEEEE',
+    borderStyle: 'dashed',
+  },
+  emptyServicesText: {
+    color: '#888',
+    marginTop: 12,
+  },
+  emptyServicesSubtext: {
+    color: '#AAA',
+    marginTop: 4,
+  },
+  modalTitle: {
+    fontWeight: '600',
+  },
+  formLabel: {
+    color: '#333',
+    marginBottom: 8,
+  },
+  iconSelector: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-start',
+    gap: 12,
+    marginTop: 8,
+  },
+  iconItem: {
+    width: 50,
+    height: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 12,
+    backgroundColor: '#F0F0F0',
+    borderWidth: 1,
+    borderColor: '#EEE',
+  },
+  selectedIconItem: {
+    backgroundColor: '#6C63FF',
+    borderColor: '#6C63FF',
+  },
+  modalButtonPrimary: {
+    minWidth: 100,
+    backgroundColor: '#6C63FF',
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  imageItem: {
+    width: width / 3 - 8,
+    height: width / 3 - 8,
+    margin: 4,
+  },
+  thumbnailImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+    borderRadius: 4,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  serviceModalContainer: {
+    width: width * 0.9,
+    maxWidth: 400,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
+  },
+  serviceForm: {
+    marginVertical: 16,
+  },
+  serviceInput: {
+    borderWidth: 1,
+    borderColor: '#DDD',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+  },
+  bioTextInput: {
+    borderWidth: 1,
+    borderColor: '#DDD',
+    borderRadius: 8,
+    padding: 12,
+    minHeight: 100,
+    textAlignVertical: 'top',
+    lineHeight: 20,
+    marginBottom: 12,
+    color: '#666',
+    backgroundColor: '#F8F9FF',
+  },
+  bioText: {
+    lineHeight: 20,
+    color: '#666',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  ratingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  rating: {
+    color: '#333',
+    fontWeight: '500',
+  },
+  sectionTitle: {
+    fontWeight: '600',
+    marginBottom: 12,
+    color: '#333',
+  },
+  showMoreButton: {
+    marginTop: 8,
   },
   reviewCount: {
     color: '#666',
@@ -854,54 +1418,18 @@ const styles = StyleSheet.create({
     color: '#333',
     lineHeight: 20,
   },
-  showMoreButton: {
-    marginTop: 8,
-  },
-  ratingContainer: {
+  modalActions: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
+    justifyContent: 'flex-end',
+    gap: 12,
+    marginTop: 16,
   },
-  rating: {
-    color: '#333',
-    fontWeight: '500',
+  modalButton: {
+    minWidth: 80,
   },
-  sectionTitle: {
-    fontWeight: '600',
-    marginBottom: 12,
-    color: '#333',
-  },
-  bioText: {
-    lineHeight: 20,
-    color: '#666',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContainer: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  imageItem: {
-    width: width / 3 - 8,
-    height: width / 3 - 8,
-    margin: 4,
-  },
-  thumbnailImage: {
+  reviewsSection: {
     width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
-    borderRadius: 4,
+    marginBottom: 24,
   },
 });
 

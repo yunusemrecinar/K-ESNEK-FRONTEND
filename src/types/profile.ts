@@ -10,6 +10,16 @@ export interface UserProfile {
 }
 
 /**
+ * Service offered by an employee
+ */
+export interface EmployeeService {
+  id?: number;
+  name: string;
+  price: string;
+  icon: string;
+}
+
+/**
  * Employee profile data interface
  */
 export interface EmployeeProfile extends UserProfile {
@@ -18,6 +28,15 @@ export interface EmployeeProfile extends UserProfile {
   totalReviews: number;
   averageRating: number;
   yearsOfExperience: number;
+  
+  // Bio/About information
+  bio?: string;
+  
+  // Services offered - can be either a string (from API) or parsed array
+  services?: EmployeeService[] | string;
+  
+  // Skills and certifications
+  certifications?: string[];
   
   // Profile picture reference
   profilePictureId?: number;

@@ -22,5 +22,20 @@ export const employeeService = {
     );
     
     return response.data.data;
+  },
+
+  /**
+   * Update employee profile data
+   * @param userId User ID
+   * @param profile Updated profile data
+   * @returns Updated employee profile
+   */
+  updateEmployeeProfile: async (userId: number | string, profile: Partial<EmployeeProfile>): Promise<EmployeeProfile> => {
+    const response = await apiClient.instance.put<ApiResponse<EmployeeProfile>>(
+      `/employee-profile/${userId}`,
+      profile
+    );
+    
+    return response.data.data;
   }
 }; 
