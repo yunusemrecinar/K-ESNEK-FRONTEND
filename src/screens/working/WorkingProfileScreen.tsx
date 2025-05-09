@@ -113,7 +113,7 @@ const ProfileScreen = () => {
         
         // Replace localhost URLs with ngrok URL
         if (url.includes('localhost') || url.includes('127.0.0.1')) {
-          return url.replace(/(http|https):\/\/(localhost|127\.0\.0\.1)(:\d+)?/, 'https://1bc9-176-233-31-141.ngrok-free.app');
+          return url.replace(/(http|https):\/\/(localhost|127\.0\.0\.1)(:\d+)?/, 'https://42c6-176-233-28-176.ngrok-free.app');
         }
         
         return url;
@@ -353,7 +353,7 @@ const ProfileScreen = () => {
                   console.error('Failed to load background image:', error.nativeEvent.error);
                   // Retry with fresh URL after error
                   if (profile?.backgroundPictureId) {
-                    const freshUrl = `https://1bc9-176-233-31-141.ngrok-free.app/api/files/download/${profile.backgroundPictureId}`;
+                    const freshUrl = `https://42c6-176-233-28-176.ngrok-free.app/api/files/download/${profile.backgroundPictureId}`;
                     console.log('Retrying with URL:', freshUrl);
                     setBackgroundPicture(freshUrl);
                   }
@@ -399,7 +399,7 @@ const ProfileScreen = () => {
                       console.error('Failed to load profile picture');
                       // Retry with fresh URL after error
                       if (profile?.profilePictureId) {
-                        const freshUrl = `https://1bc9-176-233-31-141.ngrok-free.app/api/files/download/${profile.profilePictureId}`;
+                        const freshUrl = `https://42c6-176-233-28-176.ngrok-free.app/api/files/download/${profile.profilePictureId}`;
                         console.log('Retrying with URL:', freshUrl);
                         setProfilePicture(freshUrl);
                       }

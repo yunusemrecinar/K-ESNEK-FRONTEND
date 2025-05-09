@@ -43,6 +43,14 @@ export interface RegisterEmployeeRequest {
   emailNotifications?: boolean;
   pushNotifications?: boolean;
   smsNotifications?: boolean;
+  language?: string;
+  dateOfBirth?: string;
+  currentEmployerId?: number;
+  preferredJobTypes?: string;
+  preferredLocations?: string;
+  minSalaryPreference?: number;
+  immediate?: boolean;
+  startDate?: string; // Will be converted to DateOnly in backend
 }
 
 export interface RegisterEmployerRequest {
@@ -142,13 +150,31 @@ export const authApi = {
     try {
       // Format the data to match what the backend expects
       const payload = {
-        ...data,
-        userName: data.email, // Make sure userName is included if the API expects it
-        UserEmail: data.email, // Add UserEmail field required by backend
-        fullName: `${data.firstName} ${data.lastName}`.trim()
+        UserEmail: data.email, // Capital U as seen in the backend code
+        Password: data.password,
+        FirstName: data.firstName,
+        LastName: data.lastName,
+        PhoneNumber: data.phoneNumber,
+        Location: data.location,
+        EmailNotifications: data.emailNotifications ?? true,
+        PushNotifications: data.pushNotifications ?? true,
+        SmsNotifications: data.smsNotifications ?? false,
+        Language: data.language,
+        DateOfBirth: data.dateOfBirth,
+        CurrentEmployerId: data.currentEmployerId,
+        PreferredJobTypes: data.preferredJobTypes,
+        PreferredLocations: data.preferredLocations,
+        MinSalaryPreference: data.minSalaryPreference,
+        Immediate: data.immediate ?? false,
+        StartDate: data.startDate ?? new Date().toISOString().split('T')[0] // Default to today
       };
 
       console.log('Registering employee with payload:', JSON.stringify(payload));
+      
+      // Log the request details for debugging
+      console.log('Request URL:', '/identity/employee/register');
+      console.log('Request method:', 'POST');
+      console.log('Request headers:', apiClient.instance.defaults.headers);
       
       const response = await apiClient.instance.post<RegisterResponse>('/identity/employee/register', payload);
       
@@ -158,8 +184,12 @@ export const authApi = {
       }
       
       return response.data;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Employee registration failed:', error);
+      if (error.response) {
+        console.error('Error response status:', error.response.status);
+        console.error('Error response data:', error.response.data);
+      }
       throw error;
     }
   },
@@ -168,12 +198,25 @@ export const authApi = {
     try {
       // Format the data to match what the backend expects
       const payload = {
-        ...data,
-        userName: data.email, // Make sure userName is included if the API expects it
-        UserEmail: data.email, // Add UserEmail field required by backend
+        UserEmail: data.email,
+        Password: data.password,
+        Name: data.name,
+        Description: data.description,
+        Industry: data.industry,
+        Size: data.size,
+        PhoneNumber: data.phoneNumber,
+        Location: data.location,
+        EmailNotifications: data.emailNotifications ?? true,
+        PushNotifications: data.pushNotifications ?? true,
+        SmsNotifications: data.smsNotifications ?? false
       };
 
       console.log('Registering employer with payload:', JSON.stringify(payload));
+      
+      // Log the request details for debugging
+      console.log('Request URL:', '/identity/employer/register');
+      console.log('Request method:', 'POST');
+      console.log('Request headers:', apiClient.instance.defaults.headers);
       
       const response = await apiClient.instance.post<RegisterResponse>('/identity/employer/register', payload);
       

@@ -8,6 +8,7 @@ import { CompositeScreenParamList } from '../../types/navigation';
 import { useAuth } from '../../hooks/useAuth';
 import { AccountType } from '../../contexts/AuthContext';
 import { RegisterEmployeeRequest, RegisterEmployerRequest } from '../../services/api/auth';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width } = Dimensions.get('window');
 
@@ -120,7 +121,12 @@ const RegisterScreen: React.FC<Props> = ({ navigation, route }) => {
           location: location || undefined,
           emailNotifications: true,
           pushNotifications: true,
-          smsNotifications: false
+          smsNotifications: false,
+          language: 'en', // Default language
+          immediate: false, // Default - not immediately available
+          startDate: new Date().toISOString().split('T')[0], // Default to today's date in ISO format
+          preferredJobTypes: '', // Empty string by default
+          preferredLocations: location || '' // Use the location if provided
         };
         
         // The user will use email as their userName for login
@@ -145,14 +151,32 @@ const RegisterScreen: React.FC<Props> = ({ navigation, route }) => {
       }
       
       if (success) {
+        // Store password temporarily for verification screen login
+        await AsyncStorage.setItem('tempRegistrationPassword', password);
+        
         // Navigate to email verification screen
-        navigation.navigate('EmailVerification', { email });
+        if (accountType === 'employer') {
+          navigation.navigate('EmailVerification', { email, isEmployer: true });
+        } else {
+          navigation.navigate('EmailVerification', { email, isEmployer: false });
+        }
       } else {
         setError(authError || 'Registration failed. Please try again.');
       }
-    } catch (err) {
-      setError('Registration failed. Please try again.');
+    } catch (err: any) {
       console.error('Registration error:', err);
+      
+      // Extract more specific error message if available
+      let errorMessage = 'Registration failed. Please try again.';
+      
+      if (err.response && err.response.data) {
+        // Try to get the specific error message from the response
+        errorMessage = err.response.data.message || errorMessage;
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }

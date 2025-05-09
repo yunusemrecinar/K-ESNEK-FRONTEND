@@ -21,6 +21,7 @@ export type AuthStackParamList = {
   ForgotPassword: undefined;
   EmailVerification: {
     email: string;
+    isEmployer?: boolean;
   };
   AccountType: {
     flow: 'login' | 'register';

@@ -73,7 +73,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
     setError(null);
     try {
+      console.log('Calling registerEmployee API with data:', JSON.stringify(data));
       const response = await authApi.registerEmployee(data);
+      console.log('registerEmployee API response:', JSON.stringify(response));
       
       if (!response.flag) {
         setError(response.message || 'Registration failed');
@@ -96,9 +98,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await AsyncStorage.setItem('accountType', 'employee');
       
       return true;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Registration error:', error);
-      setError('Registration failed. Please try again.');
+      // Try to get more specific error details
+      if (error.response) {
+        console.error('Error response data:', error.response.data);
+        console.error('Error response status:', error.response.status);
+        setError(error.response.data?.message || 'Registration failed. Please try again.');
+      } else {
+        setError('Registration failed. Please try again.');
+      }
       return false;
     } finally {
       setIsLoading(false);

@@ -84,7 +84,7 @@ const HiringProfileScreen = () => {
         
         // Replace localhost URLs with ngrok URL
         if (url.includes('localhost') || url.includes('127.0.0.1')) {
-          return url.replace(/(http|https):\/\/(localhost|127\.0\.0\.1)(:\d+)?/, 'https://1bc9-176-233-31-141.ngrok-free.app');
+          return url.replace(/(http|https):\/\/(localhost|127\.0\.0\.1)(:\d+)?/, 'https://42c6-176-233-28-176.ngrok-free.app');
         }
         
         return url;
@@ -97,7 +97,7 @@ const HiringProfileScreen = () => {
         setProfilePicture(accessibleUrl);
       } else if (profileData.profilePictureId) {
         // If we have an ID but no URL, construct the URL directly
-        const directUrl = `https://1bc9-176-233-31-141.ngrok-free.app/api/files/download/${profileData.profilePictureId}`;
+        const directUrl = `https://42c6-176-233-28-176.ngrok-free.app/api/files/download/${profileData.profilePictureId}`;
         console.log('Constructing profile picture URL from ID:', directUrl);
         setProfilePicture(directUrl);
       } else {
@@ -312,14 +312,14 @@ const HiringProfileScreen = () => {
                       console.error('Failed to load profile picture');
                       // Retry with fresh URL after error
                       if (profile?.profilePictureId) {
-                        const freshUrl = `https://1bc9-176-233-31-141.ngrok-free.app/api/files/download/${profile.profilePictureId}`;
+                        const freshUrl = `https://42c6-176-233-28-176.ngrok-free.app/api/files/download/${profile.profilePictureId}`;
                         console.log('Retrying with URL:', freshUrl);
                         setProfilePicture(freshUrl);
                       } else if (profilePicture?.includes('/api/files/download/')) {
                         // Try to extract ID from the URL and retry with fresh URL
                         const idMatch = profilePicture.match(/\/api\/files\/download\/(\d+)/);
                         if (idMatch && idMatch[1]) {
-                          const freshUrl = `https://1bc9-176-233-31-141.ngrok-free.app/api/files/download/${idMatch[1]}`;
+                          const freshUrl = `https://42c6-176-233-28-176.ngrok-free.app/api/files/download/${idMatch[1]}`;
                           console.log('Retrying with extracted ID URL:', freshUrl);
                           setProfilePicture(freshUrl);
                         }
