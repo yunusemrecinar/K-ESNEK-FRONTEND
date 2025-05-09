@@ -142,9 +142,15 @@ const WorkingHomeScreen = () => {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header with Applications button */}
+        {/* Header with Saved Jobs and Applications buttons */}
         <View style={styles.header}>
-          <View style={{flex: 1}} />
+          <TouchableOpacity 
+            style={styles.savedJobsButton}
+            onPress={() => navigation.navigate('SavedJobs')}
+            activeOpacity={0.7}
+          >
+            <MaterialCommunityIcons name="bookmark-outline" size={24} color="#5D56E0" />
+          </TouchableOpacity>
           <TouchableOpacity 
             style={styles.applicationsButton}
             onPress={() => navigation.navigate('Applications')}
@@ -346,6 +352,22 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontWeight: '700',
     color: '#5D56E0',
+  },
+  savedJobsButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#F8F9FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 2,
+    shadowColor: '#6C63FF',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   applicationsButton: {
     width: 48,

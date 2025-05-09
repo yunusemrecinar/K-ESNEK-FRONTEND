@@ -10,6 +10,7 @@ export type MainStackParamList = {
   Applications: undefined;
   AllCategories: undefined;
   JobDetails: { jobId: number };
+  SavedJobs: undefined;
 };
 
 const Stack = createNativeStackNavigator<MainStackParamList>();

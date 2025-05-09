@@ -14,6 +14,7 @@ import MessagesScreen from '../screens/main/MessagesScreen';
 import CategoryScreen from '../screens/categories/CategoryScreen';
 import JobDetailsScreen from '../screens/job/JobDetailsScreen';
 import AllCategoriesScreen from '../screens/categories/AllCategoriesScreen';
+import SavedJobsScreen from '../screens/saved/SavedJobsScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -62,6 +63,7 @@ const WorkingNavigator = () => {
       <Stack.Screen name="ApplicationDetails" component={ApplicationDetailsScreen} />
       <Stack.Screen name="JobDetails" component={JobDetailsScreen} />
       <Stack.Screen name="AllCategories" component={AllCategoriesScreen} />
+      <Stack.Screen name="SavedJobs" component={SavedJobsScreen} />
     </Stack.Navigator>
   );
 };

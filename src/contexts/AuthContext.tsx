@@ -9,6 +9,8 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { initializeApiClient } from '../services/api/client';
 import { tokenUtils } from '../services/api/tokenUtils';
+import { savedJobsApi, clearSavedJobsStorage } from '../services/api/savedJobs';
+import { apiClient } from '../services/api/client';
 
 export type AccountType = 'employee' | 'employer';
 
@@ -59,6 +61,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       await AsyncStorage.setItem('user', JSON.stringify(response.user));
       await AsyncStorage.setItem('accountType', type);
+      
+      // Sync saved jobs with backend after successful login
+      if (type === 'employee') {
+        try {
+          console.log('Syncing saved jobs after login for user:', response.user.id);
+          await savedJobsApi.syncWithBackend();
+        } catch (syncError) {
+          console.error('Error syncing saved jobs after login:', syncError);
+          // Continue even if sync fails - user will still be logged in
+        }
+      }
       
       return true;
     } catch (error) {
@@ -151,16 +164,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const logout = useCallback(async () => {
-    setIsLoading(true);
     try {
-      await authApi.logout();
+      setIsLoading(true);
+      
+      // Clear all auth-related storage
+      await AsyncStorage.removeItem('token');
+      await AsyncStorage.removeItem('refreshToken');
+      await AsyncStorage.removeItem('user');
+      await AsyncStorage.removeItem('accountType');
+      
+      // Clear saved jobs for the user
+      await clearSavedJobsStorage();
+      
+      // Clear token from API client
+      apiClient.clearAuthToken();
+      
+      // Reset state
       setUser(null);
       setToken(null);
       setAccountType(null);
-      await AsyncStorage.removeItem('user');
-      await AsyncStorage.removeItem('accountType');
+      setError(null);
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error('Error during logout:', error);
     } finally {
       setIsLoading(false);
     }
@@ -179,6 +204,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUser(JSON.parse(storedUser));
           setToken(storedToken);
           setAccountType(storedAccountType as AccountType);
+          
+          // Sync saved jobs with backend on app start if user is logged in as employee
+          if (storedAccountType === 'employee') {
+            try {
+              await savedJobsApi.syncWithBackend();
+            } catch (syncError) {
+              console.error('Error syncing saved jobs on app start:', syncError);
+            }
+          }
         }
       } catch (error) {
         // Error handled silently

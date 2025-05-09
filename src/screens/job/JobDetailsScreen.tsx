@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Linking, TouchableOpacity } from 'react-native';
-import { Text, Card, Chip, Button, Divider, ActivityIndicator, useTheme } from 'react-native-paper';
+import { Text, Card, Chip, Button, Divider, ActivityIndicator, useTheme, Snackbar } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MainStackParamList } from '../../navigation/MainNavigator';
 import { apiClient } from '../../services/api/client';
+import { savedJobsApi } from '../../services/api/savedJobs';
 
 type JobDetailsRouteProp = RouteProp<MainStackParamList, 'JobDetails'>;
 type JobDetailsNavigationProp = NativeStackNavigationProp<MainStackParamList>;
@@ -44,17 +45,31 @@ const JobDetailsScreen: React.FC = () => {
   const [job, setJob] = useState<Job | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isSaved, setIsSaved] = useState(false);
+  const [savingJob, setSavingJob] = useState(false);
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
   const theme = useTheme();
   const route = useRoute<JobDetailsRouteProp>();
   const navigation = useNavigation<JobDetailsNavigationProp>();
   const { jobId } = route.params;
 
-  // Fetch job details
+  // Show snackbar message
+  const showSnackbar = (message: string) => {
+    setSnackbarMessage(message);
+    setSnackbarVisible(true);
+  };
+
+  // Fetch job details and check if job is saved
   useEffect(() => {
     const fetchJobDetails = async () => {
       try {
         setIsLoading(true);
         setError(null);
+
+        // Check if job is saved
+        const jobSaved = await savedJobsApi.isJobSaved(jobId);
+        setIsSaved(jobSaved);
 
         // Make actual API call to get job details
         const response = await apiClient.instance.get(`/jobs/${jobId}`);
@@ -158,6 +173,53 @@ const JobDetailsScreen: React.FC = () => {
   // Handle opening phone
   const handlePhonePress = (phone: string) => {
     Linking.openURL(`tel:${phone}`);
+  };
+
+  // Handle save job
+  const handleSaveJob = async () => {
+    if (!job) return;
+    
+    try {
+      setSavingJob(true);
+      
+      if (isSaved) {
+        // Unsave the job
+        const success = await savedJobsApi.unsaveJob(job.id);
+        if (success) {
+          setIsSaved(false);
+          showSnackbar('Job removed from saved jobs');
+        } else {
+          showSnackbar('Failed to remove job');
+        }
+      } else {
+        // Save the job
+        const jobToSave = {
+          id: job.id,
+          title: job.title,
+          companyName: job.companyName,
+          minSalary: job.minSalary,
+          maxSalary: job.maxSalary,
+          currency: job.currency,
+          city: job.city,
+          country: job.country,
+          jobLocationType: job.jobLocationType,
+          employmentType: job.employmentType,
+        };
+        
+        const success = await savedJobsApi.saveJob(jobToSave);
+        if (success) {
+          setIsSaved(true);
+          showSnackbar('Job saved successfully');
+        } else {
+          showSnackbar('Failed to save job');
+        }
+      }
+    } catch (error) {
+      console.error('Error saving/unsaving job:', error);
+      showSnackbar('An error occurred');
+    } finally {
+      setSavingJob(false);
+    }
   };
 
   if (isLoading) {
@@ -374,17 +436,24 @@ const JobDetailsScreen: React.FC = () => {
           </Button>
           <Button 
             mode="outlined" 
-            icon="bookmark-outline" 
+            icon={isSaved ? "bookmark" : "bookmark-outline"} 
             style={styles.actionButton} 
-            onPress={() => {
-              // TODO: Implement save job functionality
-              console.log('Save job');
-            }}
+            loading={savingJob}
+            onPress={handleSaveJob}
           >
-            Save Job
+            {isSaved ? "Unsave Job" : "Save Job"}
           </Button>
         </View>
       </ScrollView>
+
+      <Snackbar
+        visible={snackbarVisible}
+        onDismiss={() => setSnackbarVisible(false)}
+        duration={3000}
+        style={styles.snackbar}
+      >
+        {snackbarMessage}
+      </Snackbar>
     </SafeAreaView>
   );
 };
@@ -508,6 +577,9 @@ const styles = StyleSheet.create({
   },
   backButton: {
     marginTop: 16,
+  },
+  snackbar: {
+    marginBottom: 16,
   },
 });
 
