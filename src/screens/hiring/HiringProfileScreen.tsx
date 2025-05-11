@@ -84,7 +84,7 @@ const HiringProfileScreen = () => {
         
         // Replace localhost URLs with ngrok URL
         if (url.includes('localhost') || url.includes('127.0.0.1')) {
-          return url.replace(/(http|https):\/\/(localhost|127\.0\.0\.1)(:\d+)?/, 'https://42c6-176-233-28-176.ngrok-free.app');
+          return url.replace(/(http|https):\/\/(localhost|127\.0\.0\.1)(:\d+)?/, 'https://baed-176-233-28-176.ngrok-free.app');
         }
         
         return url;
@@ -97,7 +97,7 @@ const HiringProfileScreen = () => {
         setProfilePicture(accessibleUrl);
       } else if (profileData.profilePictureId) {
         // If we have an ID but no URL, construct the URL directly
-        const directUrl = `https://42c6-176-233-28-176.ngrok-free.app/api/files/download/${profileData.profilePictureId}`;
+        const directUrl = `https://baed-176-233-28-176.ngrok-free.app/api/files/download/${profileData.profilePictureId}`;
         console.log('Constructing profile picture URL from ID:', directUrl);
         setProfilePicture(directUrl);
       } else {
@@ -312,14 +312,14 @@ const HiringProfileScreen = () => {
                       console.error('Failed to load profile picture');
                       // Retry with fresh URL after error
                       if (profile?.profilePictureId) {
-                        const freshUrl = `https://42c6-176-233-28-176.ngrok-free.app/api/files/download/${profile.profilePictureId}`;
+                        const freshUrl = `https://baed-176-233-28-176.ngrok-free.app/api/files/download/${profile.profilePictureId}`;
                         console.log('Retrying with URL:', freshUrl);
                         setProfilePicture(freshUrl);
                       } else if (profilePicture?.includes('/api/files/download/')) {
                         // Try to extract ID from the URL and retry with fresh URL
                         const idMatch = profilePicture.match(/\/api\/files\/download\/(\d+)/);
                         if (idMatch && idMatch[1]) {
-                          const freshUrl = `https://42c6-176-233-28-176.ngrok-free.app/api/files/download/${idMatch[1]}`;
+                          const freshUrl = `https://baed-176-233-28-176.ngrok-free.app/api/files/download/${idMatch[1]}`;
                           console.log('Retrying with extracted ID URL:', freshUrl);
                           setProfilePicture(freshUrl);
                         }
@@ -370,123 +370,129 @@ const HiringProfileScreen = () => {
         </View>
 
         <Card style={styles.section}>
-          <Card.Content>
-            <Text variant="titleMedium" style={styles.sectionTitle}>
-              Company Information
-            </Text>
-            {isEditing ? (
-              <>
-                <TextInput
-                  label="Company Name"
-                  value={profile.name}
-                  onChangeText={(text) => setProfile({ ...profile, name: text })}
-                  style={styles.input}
-                  mode="outlined"
-                />
-                <TextInput
-                  label="Description"
-                  value={profile.description}
-                  onChangeText={(text) =>
-                    setProfile({ ...profile, description: text })
-                  }
-                  multiline
-                  numberOfLines={4}
-                  style={styles.input}
-                  mode="outlined"
-                />
-                <TextInput
-                  label="Website"
-                  value={profile.website}
-                  onChangeText={(text) => setProfile({ ...profile, website: text })}
-                  style={styles.input}
-                  mode="outlined"
-                />
-                <TextInput
-                  label="Industry"
-                  value={profile.industry}
-                  onChangeText={(text) =>
-                    setProfile({ ...profile, industry: text })
-                  }
-                  style={styles.input}
-                  mode="outlined"
-                />
-                <TextInput
-                  label="Company Size"
-                  value={profile.size}
-                  onChangeText={(text) => setProfile({ ...profile, size: text })}
-                  style={styles.input}
-                  mode="outlined"
-                />
-              </>
-            ) : (
-              <>
-                <Text style={styles.description}>{profile.description}</Text>
-                <View style={styles.infoRow}>
-                  <Ionicons name="globe-outline" size={20} color="#666" />
-                  <Text style={styles.infoText}>{profile.website}</Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <Ionicons name="business-outline" size={20} color="#666" />
-                  <Text style={styles.infoText}>{profile.industry}</Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <Ionicons name="people-outline" size={20} color="#666" />
-                  <Text style={styles.infoText}>{profile.size}</Text>
-                </View>
-              </>
-            )}
-          </Card.Content>
+          <View style={styles.cardContainer}>
+            <Card.Content>
+              <Text variant="titleMedium" style={styles.sectionTitle}>
+                Company Information
+              </Text>
+              {isEditing ? (
+                <>
+                  <TextInput
+                    label="Company Name"
+                    value={profile.name}
+                    onChangeText={(text) => setProfile({ ...profile, name: text })}
+                    style={styles.input}
+                    mode="outlined"
+                  />
+                  <TextInput
+                    label="Description"
+                    value={profile.description}
+                    onChangeText={(text) =>
+                      setProfile({ ...profile, description: text })
+                    }
+                    multiline
+                    numberOfLines={4}
+                    style={styles.input}
+                    mode="outlined"
+                  />
+                  <TextInput
+                    label="Website"
+                    value={profile.website}
+                    onChangeText={(text) => setProfile({ ...profile, website: text })}
+                    style={styles.input}
+                    mode="outlined"
+                  />
+                  <TextInput
+                    label="Industry"
+                    value={profile.industry}
+                    onChangeText={(text) =>
+                      setProfile({ ...profile, industry: text })
+                    }
+                    style={styles.input}
+                    mode="outlined"
+                  />
+                  <TextInput
+                    label="Company Size"
+                    value={profile.size}
+                    onChangeText={(text) => setProfile({ ...profile, size: text })}
+                    style={styles.input}
+                    mode="outlined"
+                  />
+                </>
+              ) : (
+                <>
+                  <Text style={styles.description}>{profile.description}</Text>
+                  <View style={styles.infoRow}>
+                    <Ionicons name="globe-outline" size={20} color="#666" />
+                    <Text style={styles.infoText}>{profile.website}</Text>
+                  </View>
+                  <View style={styles.infoRow}>
+                    <Ionicons name="business-outline" size={20} color="#666" />
+                    <Text style={styles.infoText}>{profile.industry}</Text>
+                  </View>
+                  <View style={styles.infoRow}>
+                    <Ionicons name="people-outline" size={20} color="#666" />
+                    <Text style={styles.infoText}>{profile.size}</Text>
+                  </View>
+                </>
+              )}
+            </Card.Content>
+          </View>
         </Card>
 
         <Card style={styles.section}>
-          <Card.Content>
-            <Text variant="titleMedium" style={styles.sectionTitle}>
-              Contact Information
-            </Text>
-            {isEditing ? (
-              <>
-                <TextInput
-                  label="Email"
-                  value={profile.email}
-                  onChangeText={(text) => setProfile({ ...profile, email: text })}
-                  style={styles.input}
-                  mode="outlined"
-                />
-                <TextInput
-                  label="Phone"
-                  value={profile.phone}
-                  onChangeText={(text) => setProfile({ ...profile, phone: text })}
-                  style={styles.input}
-                  mode="outlined"
-                />
-              </>
-            ) : (
-              <>
-                <View style={styles.infoRow}>
-                  <Ionicons name="mail-outline" size={20} color="#666" />
-                  <Text style={styles.infoText}>{profile.email}</Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <Ionicons name="call-outline" size={20} color="#666" />
-                  <Text style={styles.infoText}>{profile.phone}</Text>
-                </View>
-              </>
-            )}
-          </Card.Content>
+          <View style={styles.cardContainer}>
+            <Card.Content>
+              <Text variant="titleMedium" style={styles.sectionTitle}>
+                Contact Information
+              </Text>
+              {isEditing ? (
+                <>
+                  <TextInput
+                    label="Email"
+                    value={profile.email}
+                    onChangeText={(text) => setProfile({ ...profile, email: text })}
+                    style={styles.input}
+                    mode="outlined"
+                  />
+                  <TextInput
+                    label="Phone"
+                    value={profile.phone}
+                    onChangeText={(text) => setProfile({ ...profile, phone: text })}
+                    style={styles.input}
+                    mode="outlined"
+                  />
+                </>
+              ) : (
+                <>
+                  <View style={styles.infoRow}>
+                    <Ionicons name="mail-outline" size={20} color="#666" />
+                    <Text style={styles.infoText}>{profile.email}</Text>
+                  </View>
+                  <View style={styles.infoRow}>
+                    <Ionicons name="call-outline" size={20} color="#666" />
+                    <Text style={styles.infoText}>{profile.phone}</Text>
+                  </View>
+                </>
+              )}
+            </Card.Content>
+          </View>
         </Card>
 
         <Card style={styles.section}>
-          <Card.Content>
-            <View style={styles.settingRow}>
-              <Text variant="titleMedium">Push Notifications</Text>
-              <Switch
-                value={profile.notificationsEnabled}
-                onValueChange={(value) =>
-                  setProfile({ ...profile, notificationsEnabled: value })
-                }
-              />
-            </View>
-          </Card.Content>
+          <View style={styles.cardContainer}>
+            <Card.Content>
+              <View style={styles.settingRow}>
+                <Text variant="titleMedium">Push Notifications</Text>
+                <Switch
+                  value={profile.notificationsEnabled}
+                  onValueChange={(value) =>
+                    setProfile({ ...profile, notificationsEnabled: value })
+                  }
+                />
+              </View>
+            </Card.Content>
+          </View>
         </Card>
 
         {isEditing && (
@@ -565,6 +571,10 @@ const styles = StyleSheet.create({
   },
   section: {
     marginBottom: 16,
+  },
+  cardContainer: {
+    overflow: 'hidden',
+    borderRadius: 8,
   },
   sectionTitle: {
     fontWeight: 'bold',

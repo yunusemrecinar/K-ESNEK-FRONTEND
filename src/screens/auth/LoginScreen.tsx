@@ -23,7 +23,7 @@ type Props = {
 };
 
 const LoginScreen: React.FC<Props> = ({ navigation, route }) => {
-  const [email, setEmail] = useState('test@test.com');
+  const [email, setEmail] = useState('employeey@gmail.com');
   const [password, setPassword] = useState('Password123!');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);

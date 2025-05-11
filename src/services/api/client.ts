@@ -18,7 +18,7 @@ const getApiBaseUrl = () => {
     // Use ngrok URL for direct testing
     const useNgrok = true; // Toggle this when needed
     if (useNgrok) {
-      return 'https://42c6-176-233-28-176.ngrok-free.app/api';
+      return 'https://baed-176-233-28-176.ngrok-free.app/api';
     }
     
     // For iOS simulators, use localhost

@@ -126,81 +126,83 @@ const SavedJobsScreen = () => {
 
   const renderJobItem = ({ item }: { item: SavedJob }) => (
     <Surface style={styles.jobCard} elevation={1}>
-      <TouchableOpacity 
-        style={styles.jobCardContent}
-        onPress={() => handleJobPress(item.id)}
-        activeOpacity={0.7}
-      >
-        <View style={styles.jobHeader}>
-          <Text variant="titleMedium" style={styles.jobTitle}>{item.title}</Text>
-          <TouchableOpacity 
-            onPress={() => handleUnsaveJob(item.id)}
-            style={styles.unsaveButton}
-          >
-            <MaterialCommunityIcons 
-              name="bookmark" 
-              size={24} 
-              color={theme.colors.primary} 
-            />
-          </TouchableOpacity>
-        </View>
-        
-        <Text variant="bodyMedium" style={styles.companyName}>
-          {item.companyName || 'Company'}
-        </Text>
-        
-        <View style={styles.jobDetailsRow}>
-          {item.city && (
-            <View style={styles.jobDetailItem}>
+      <View style={styles.cardContainer}>
+        <TouchableOpacity 
+          style={styles.jobCardContent}
+          onPress={() => handleJobPress(item.id)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.jobHeader}>
+            <Text variant="titleMedium" style={styles.jobTitle}>{item.title}</Text>
+            <TouchableOpacity 
+              onPress={() => handleUnsaveJob(item.id)}
+              style={styles.unsaveButton}
+            >
               <MaterialCommunityIcons 
-                name="map-marker" 
-                size={16} 
+                name="bookmark" 
+                size={24} 
                 color={theme.colors.primary} 
               />
-              <Text variant="bodySmall" style={styles.jobDetailText}>
-                {item.city}{item.country ? `, ${item.country}` : ''}
-              </Text>
-            </View>
-          )}
+            </TouchableOpacity>
+          </View>
           
-          {item.jobLocationType && (
-            <View style={styles.jobDetailItem}>
-              <MaterialCommunityIcons 
-                name="office-building" 
-                size={16} 
-                color={theme.colors.primary} 
-              />
-              <Text variant="bodySmall" style={styles.jobDetailText}>
-                {item.jobLocationType}
-              </Text>
-            </View>
-          )}
+          <Text variant="bodyMedium" style={styles.companyName}>
+            {item.companyName || 'Company'}
+          </Text>
           
-          {item.employmentType && (
-            <View style={styles.jobDetailItem}>
-              <MaterialCommunityIcons 
-                name="briefcase-outline" 
-                size={16} 
-                color={theme.colors.primary} 
-              />
-              <Text variant="bodySmall" style={styles.jobDetailText}>
-                {item.employmentType}
-              </Text>
-            </View>
-          )}
-        </View>
-        
-        <Divider style={styles.divider} />
-        
-        <View style={styles.jobFooter}>
-          <Text variant="titleSmall" style={styles.salary}>
-            {item.currency || '$'}{item.minSalary} - {item.currency || '$'}{item.maxSalary}
-          </Text>
-          <Text variant="bodySmall" style={styles.savedDate}>
-            Saved {formatDate(item.savedAt)}
-          </Text>
-        </View>
-      </TouchableOpacity>
+          <View style={styles.jobDetailsRow}>
+            {item.city && (
+              <View style={styles.jobDetailItem}>
+                <MaterialCommunityIcons 
+                  name="map-marker" 
+                  size={16} 
+                  color={theme.colors.primary} 
+                />
+                <Text variant="bodySmall" style={styles.jobDetailText}>
+                  {item.city}{item.country ? `, ${item.country}` : ''}
+                </Text>
+              </View>
+            )}
+            
+            {item.jobLocationType && (
+              <View style={styles.jobDetailItem}>
+                <MaterialCommunityIcons 
+                  name="office-building" 
+                  size={16} 
+                  color={theme.colors.primary} 
+                />
+                <Text variant="bodySmall" style={styles.jobDetailText}>
+                  {item.jobLocationType}
+                </Text>
+              </View>
+            )}
+            
+            {item.employmentType && (
+              <View style={styles.jobDetailItem}>
+                <MaterialCommunityIcons 
+                  name="briefcase-outline" 
+                  size={16} 
+                  color={theme.colors.primary} 
+                />
+                <Text variant="bodySmall" style={styles.jobDetailText}>
+                  {item.employmentType}
+                </Text>
+              </View>
+            )}
+          </View>
+          
+          <Divider style={styles.divider} />
+          
+          <View style={styles.jobFooter}>
+            <Text variant="titleSmall" style={styles.salary}>
+              {item.currency || '$'}{item.minSalary} - {item.currency || '$'}{item.maxSalary}
+            </Text>
+            <Text variant="bodySmall" style={styles.savedDate}>
+              Saved {formatDate(item.savedAt)}
+            </Text>
+          </View>
+        </TouchableOpacity>
+      </View>
     </Surface>
   );
 
@@ -355,7 +357,10 @@ const styles = StyleSheet.create({
   },
   jobCard: {
     borderRadius: 12,
+  },
+  cardContainer: {
     overflow: 'hidden',
+    borderRadius: 12,
   },
   jobCardContent: {
     padding: 16,

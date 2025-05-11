@@ -141,7 +141,7 @@ const ProfileScreen = () => {
         
         // Replace localhost URLs with ngrok URL
         if (url.includes('localhost') || url.includes('127.0.0.1')) {
-          return url.replace(/(http|https):\/\/(localhost|127\.0\.0\.1)(:\d+)?/, 'https://42c6-176-233-28-176.ngrok-free.app');
+          return url.replace(/(http|https):\/\/(localhost|127\.0\.0\.1)(:\d+)?/, 'https://baed-176-233-28-176.ngrok-free.app');
         }
         
         return url;
@@ -237,12 +237,29 @@ const ProfileScreen = () => {
       setShowImagePicker(false);
       setIsUploading(true);
       
+      // Validate userId
+      if (!userId || userId === '0') {
+        console.error('Invalid userId for upload:', userId);
+        Alert.alert('Error', 'Invalid user ID. Please login again.');
+        setIsUploading(false);
+        return;
+      }
+      
+      console.log(`Processing upload for user ID: ${userId} (type: ${typeof userId})`);
+      
       const imageFile = await selectAndProcessImage(asset);
       
       if (!imageFile) {
         setIsUploading(false);
         return;
       }
+      
+      console.log('Image file prepared for upload:', {
+        uri: imageFile.uri,
+        name: imageFile.name,
+        type: imageFile.type,
+        size: imageFile.size
+      });
       
       // Create a FormData object
       const formData = new FormData();
@@ -256,21 +273,59 @@ const ProfileScreen = () => {
       let fileId: number;
       
       // Handle different upload types
-      if (uploadType === 'profile') {
-        fileId = await fileService.uploadEmployeeProfilePicture(userId, formData);
-        // Don't set direct URL here - wait for refresh
-      } else {
-        fileId = await fileService.uploadEmployeeBackgroundPicture(userId, formData);
-        // Don't set direct URL here - wait for refresh
+      try {
+        if (uploadType === 'profile') {
+          console.log(`Uploading profile picture for user ${userId}`);
+          // Ensure userId is a number
+          const userIdNum = parseInt(userId);
+          if (isNaN(userIdNum)) {
+            throw new Error(`Invalid userId format: ${userId}`);
+          }
+          fileId = await fileService.uploadEmployeeProfilePicture(userIdNum, formData);
+          console.log('Profile picture uploaded successfully, fileId:', fileId);
+        } else {
+          console.log(`Uploading background picture for user ${userId}`);
+          // Ensure userId is a number
+          const userIdNum = parseInt(userId);
+          if (isNaN(userIdNum)) {
+            throw new Error(`Invalid userId format: ${userId}`);
+          }
+          fileId = await fileService.uploadEmployeeBackgroundPicture(userIdNum, formData);
+          console.log('Background picture uploaded successfully, fileId:', fileId);
+        }
+        
+        // Short delay before fetching updated profile data
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Refresh profile data to ensure we have the latest file IDs
+        await fetchProfileData();
+        
+        setIsUploading(false);
+        
+        // Make sure the image is displayed even if fetchProfileData didn't update it
+        if (uploadType === 'profile' && fileId) {
+          const directUrl = fileService.getFileUrl(fileId);
+          console.log('Setting profile picture directly:', directUrl);
+          setProfilePicture(directUrl);
+        } else if (fileId) {
+          const directUrl = fileService.getFileUrl(fileId);
+          console.log('Setting background picture directly:', directUrl);
+          setBackgroundPicture(directUrl);
+        }
+      } catch (uploadError: any) {
+        console.error("Error in file upload request:", uploadError);
+        
+        if (uploadError.response) {
+          console.error('Response error data:', uploadError.response.data);
+          console.error('Response status:', uploadError.response.status);
+        }
+        
+        Alert.alert('Upload Error', 'Could not upload image. Please try again.');
+        setIsUploading(false);
       }
-      
-      // Refresh profile data to ensure we have the latest file IDs
-      await fetchProfileData();
-      
-      setIsUploading(false);
     } catch (error) {
-      console.error("Error uploading image:", error);
-      Alert.alert('Upload Error', 'Could not upload image');
+      console.error("Error in image selection/processing:", error);
+      Alert.alert('Upload Error', 'Could not process or upload image');
       setIsUploading(false);
     }
   };
@@ -296,6 +351,11 @@ const ProfileScreen = () => {
         setIsUploading(true);
         
         const asset = result.assets[0];
+        console.log('CV file selected:', {
+          uri: asset.uri,
+          name: asset.name,
+          type: asset.mimeType
+        });
         
         // Create a FormData object
         const formData = new FormData();
@@ -306,18 +366,40 @@ const ProfileScreen = () => {
           type: asset.mimeType || 'application/pdf',
         } as any);
         
-        // Upload the CV
-        const fileId = await fileService.uploadEmployeeCV(userId, formData);
-        
-        // Refresh profile data
-        await fetchProfileData();
-        
-        setIsUploading(false);
-        Alert.alert('Success', 'CV uploaded successfully');
+        try {
+          console.log(`Uploading CV for user ${userId}`);
+          // Ensure userId is a number
+          const userIdNum = parseInt(userId);
+          if (isNaN(userIdNum)) {
+            throw new Error(`Invalid userId format: ${userId}`);
+          }
+          // Upload the CV
+          const fileId = await fileService.uploadEmployeeCV(userIdNum, formData);
+          console.log('CV uploaded successfully, fileId:', fileId);
+          
+          // Short delay before fetching updated profile data
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          // Refresh profile data
+          await fetchProfileData();
+          
+          setIsUploading(false);
+          Alert.alert('Success', 'CV uploaded successfully');
+        } catch (uploadError: any) {
+          console.error("Error in CV upload request:", uploadError);
+          
+          if (uploadError.response) {
+            console.error('Response error data:', uploadError.response.data);
+            console.error('Response status:', uploadError.response.status);
+          }
+          
+          Alert.alert('Upload Error', 'Could not upload CV. Please try again.');
+          setIsUploading(false);
+        }
       }
     } catch (error) {
-      console.error("Error uploading CV:", error);
-      Alert.alert('Upload Error', 'Could not upload CV');
+      console.error("Error selecting or processing CV:", error);
+      Alert.alert('Upload Error', 'Could not process or upload CV');
       setIsUploading(false);
     }
   };
@@ -574,8 +656,8 @@ const ProfileScreen = () => {
                   console.error('Failed to load background image:', error.nativeEvent.error);
                   // Retry with fresh URL after error
                   if (profile?.backgroundPictureId) {
-                    const freshUrl = `https://42c6-176-233-28-176.ngrok-free.app/api/files/download/${profile.backgroundPictureId}`;
-                    console.log('Retrying with URL:', freshUrl);
+                    const freshUrl = fileService.getFileUrl(profile.backgroundPictureId);
+                    console.log('Retrying background image with direct URL:', freshUrl);
                     setBackgroundPicture(freshUrl);
                   }
                 }}
@@ -620,8 +702,8 @@ const ProfileScreen = () => {
                       console.error('Failed to load profile picture');
                       // Retry with fresh URL after error
                       if (profile?.profilePictureId) {
-                        const freshUrl = `https://42c6-176-233-28-176.ngrok-free.app/api/files/download/${profile.profilePictureId}`;
-                        console.log('Retrying with URL:', freshUrl);
+                        const freshUrl = fileService.getFileUrl(profile.profilePictureId);
+                        console.log('Retrying profile image with direct URL:', freshUrl);
                         setProfilePicture(freshUrl);
                       }
                     }}
@@ -707,48 +789,50 @@ const ProfileScreen = () => {
 
           {/* Bio Section */}
           <Card style={styles.bioCard}>
-            <Card.Content>
-              <View style={styles.sectionTitleContainer}>
-                <MaterialCommunityIcons name="account-details" size={24} color="#333" />
-                <Text variant="titleMedium" style={styles.sectionTitle}>About</Text>
-                <View style={{ flex: 1 }} />
-                <IconButton
-                  icon={isEditingBio ? "check" : "pencil"}
-                  size={20}
-                  onPress={isEditingBio ? handleBioSave : handleBioEdit}
-                  loading={isSaving && isEditingBio}
-                  disabled={isSaving}
-                />
-                {isEditingBio && (
+            <View style={styles.bioCardContainer}>
+              <Card.Content>
+                <View style={styles.sectionTitleContainer}>
+                  <MaterialCommunityIcons name="account-details" size={24} color="#333" />
+                  <Text variant="titleMedium" style={styles.sectionTitle}>About</Text>
+                  <View style={{ flex: 1 }} />
                   <IconButton
-                    icon="close"
+                    icon={isEditingBio ? "check" : "pencil"}
                     size={20}
-                    onPress={handleBioCancel}
+                    onPress={isEditingBio ? handleBioSave : handleBioEdit}
+                    loading={isSaving && isEditingBio}
                     disabled={isSaving}
                   />
+                  {isEditingBio && (
+                    <IconButton
+                      icon="close"
+                      size={20}
+                      onPress={handleBioCancel}
+                      disabled={isSaving}
+                    />
+                  )}
+                </View>
+                
+                {isEditingBio ? (
+                  <TextInput
+                    multiline
+                    numberOfLines={4}
+                    style={styles.bioTextInput}
+                    value={editedBio}
+                    onChangeText={setEditedBio}
+                    placeholder="Describe yourself and your professional experience..."
+                  />
+                ) : (
+                  <Text variant="bodyMedium" style={styles.bioText}>
+                    {profile?.bio || 'Professional pet sitter with over 5 years of experience. Specialized in dog walking, pet sitting, and basic training. Certified in pet first aid and CPR.'}
+                  </Text>
                 )}
-              </View>
-              
-              {isEditingBio ? (
-                <TextInput
-                  multiline
-                  numberOfLines={4}
-                  style={styles.bioTextInput}
-                  value={editedBio}
-                  onChangeText={setEditedBio}
-                  placeholder="Describe yourself and your professional experience..."
-                />
-              ) : (
-                <Text variant="bodyMedium" style={styles.bioText}>
-                  {profile?.bio || 'Professional pet sitter with over 5 years of experience. Specialized in dog walking, pet sitting, and basic training. Certified in pet first aid and CPR.'}
-                </Text>
-              )}
-              
-              <View style={styles.certificatesContainer}>
-                <Chip icon="certificate" style={styles.certificateChip}>Pet First Aid</Chip>
-                <Chip icon="certificate" style={styles.certificateChip}>CPR Certified</Chip>
-              </View>
-            </Card.Content>
+                
+                <View style={styles.certificatesContainer}>
+                  <Chip icon="certificate" style={styles.certificateChip}>Pet First Aid</Chip>
+                  <Chip icon="certificate" style={styles.certificateChip}>CPR Certified</Chip>
+                </View>
+              </Card.Content>
+            </View>
           </Card>
 
           {/* Services Section */}
@@ -793,35 +877,37 @@ const ProfileScreen = () => {
               <View style={styles.editServicesContainer}>
                 {editedServices.map((service, index) => (
                   <Card key={index} style={styles.serviceCardEditing}>
-                    <Card.Content>
-                      <View style={styles.serviceEditHeader}>
-                        <View style={styles.serviceIconContainer}>
-                          <MaterialCommunityIcons name={service.icon as any} size={24} color="#fff" />
+                    <View style={styles.serviceEditContainer}>
+                      <Card.Content>
+                        <View style={styles.serviceEditHeader}>
+                          <View style={styles.serviceIconContainer}>
+                            <MaterialCommunityIcons name={service.icon as any} size={24} color="#fff" />
+                          </View>
+                          <View style={styles.serviceEditInfo}>
+                            <Text variant="titleSmall" style={styles.serviceEditName}>{service.name}</Text>
+                            <Text variant="bodySmall" style={styles.serviceEditPrice}>{service.price}</Text>
+                          </View>
+                          <View style={styles.serviceEditActions}>
+                            <IconButton
+                              icon="pencil"
+                              size={16}
+                              mode="contained-tonal"
+                              containerColor="rgba(108, 99, 255, 0.1)"
+                              iconColor="#6C63FF"
+                              onPress={() => editService(index)}
+                            />
+                            <IconButton
+                              icon="delete"
+                              size={16}
+                              mode="contained-tonal"
+                              containerColor="rgba(244, 67, 54, 0.1)"
+                              iconColor="#F44336"
+                              onPress={() => deleteService(index)}
+                            />
+                          </View>
                         </View>
-                        <View style={styles.serviceEditInfo}>
-                          <Text variant="titleSmall" style={styles.serviceEditName}>{service.name}</Text>
-                          <Text variant="bodySmall" style={styles.serviceEditPrice}>{service.price}</Text>
-                        </View>
-                        <View style={styles.serviceEditActions}>
-                          <IconButton
-                            icon="pencil"
-                            size={16}
-                            mode="contained-tonal"
-                            containerColor="rgba(108, 99, 255, 0.1)"
-                            iconColor="#6C63FF"
-                            onPress={() => editService(index)}
-                          />
-                          <IconButton
-                            icon="delete"
-                            size={16}
-                            mode="contained-tonal"
-                            containerColor="rgba(244, 67, 54, 0.1)"
-                            iconColor="#F44336"
-                            onPress={() => deleteService(index)}
-                          />
-                        </View>
-                      </View>
-                    </Card.Content>
+                      </Card.Content>
+                    </View>
                   </Card>
                 ))}
                 {editedServices.length === 0 && (
@@ -840,18 +926,20 @@ const ProfileScreen = () => {
               >
                 {services.map((service, index) => (
                   <Card key={index} style={styles.serviceCardNew}>
-                    <View style={styles.serviceCardContent}>
-                      <View style={styles.serviceIconBadge}>
-                        <MaterialCommunityIcons name={service.icon as any} size={24} color="#fff" />
-                      </View>
-                      <Text variant="titleMedium" style={styles.serviceTitle}>
-                        {service.name}
-                      </Text>
-                      <View style={styles.servicePriceContainer}>
-                        <Text style={styles.currencySymbol}>$</Text>
-                        <Text variant="bodyLarge" style={styles.servicePrice}>
-                          {service.price.replace(/^\$/, '')}
+                    <View style={styles.serviceCardContainer}>
+                      <View style={styles.serviceCardContent}>
+                        <View style={styles.serviceIconBadge}>
+                          <MaterialCommunityIcons name={service.icon as any} size={24} color="#fff" />
+                        </View>
+                        <Text variant="titleMedium" style={styles.serviceTitle}>
+                          {service.name}
                         </Text>
+                        <View style={styles.servicePriceContainer}>
+                          <Text style={styles.currencySymbol}>$</Text>
+                          <Text variant="bodyLarge" style={styles.servicePrice}>
+                            {service.price.replace(/^\$/, '')}
+                          </Text>
+                        </View>
                       </View>
                     </View>
                   </Card>
@@ -869,28 +957,30 @@ const ProfileScreen = () => {
             </View>
             {displayedReviews.map((review) => (
               <Card key={review.id} style={styles.reviewCard}>
-                <Card.Content>
-                  <View style={styles.reviewHeader}>
-                    <View style={styles.reviewAuthorContainer}>
-                      <Avatar.Text size={36} label={review.avatar} style={styles.reviewAvatar} />
-                      <View>
-                        <Text variant="titleSmall" style={styles.reviewAuthor}>
-                          {review.author}
-                        </Text>
-                        <Text variant="bodySmall" style={styles.reviewDate}>
-                          {review.date}
-                        </Text>
+                <View style={styles.cardContainer}>
+                  <Card.Content>
+                    <View style={styles.reviewHeader}>
+                      <View style={styles.reviewAuthorContainer}>
+                        <Avatar.Text size={36} label={review.avatar} style={styles.reviewAvatar} />
+                        <View>
+                          <Text variant="titleSmall" style={styles.reviewAuthor}>
+                            {review.author}
+                          </Text>
+                          <Text variant="bodySmall" style={styles.reviewDate}>
+                            {review.date}
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={styles.reviewRating}>
+                        <MaterialCommunityIcons name="star" size={16} color="#FFC107" />
+                        <Text variant="bodyMedium">{review.rating}</Text>
                       </View>
                     </View>
-                    <View style={styles.reviewRating}>
-                      <MaterialCommunityIcons name="star" size={16} color="#FFC107" />
-                      <Text variant="bodyMedium">{review.rating}</Text>
-                    </View>
-                  </View>
-                  <Text variant="bodyMedium" style={styles.reviewComment}>
-                    {review.comment}
-                  </Text>
-                </Card.Content>
+                    <Text variant="bodyMedium" style={styles.reviewComment}>
+                      {review.comment}
+                    </Text>
+                  </Card.Content>
+                </View>
               </Card>
             ))}
             {reviews.length > 2 && (
@@ -1090,6 +1180,10 @@ const styles = StyleSheet.create({
       },
     }),
   },
+  bioCardContainer: {
+    overflow: 'hidden',
+    borderRadius: 12,
+  },
   certificatesContainer: {
     flexDirection: 'row',
     gap: 8,
@@ -1116,7 +1210,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     borderRadius: 20,
     backgroundColor: '#F7F7FF',
-    overflow: 'hidden',
     ...Platform.select({
       ios: {
         shadowColor: '#5D5FEF',
@@ -1128,6 +1221,11 @@ const styles = StyleSheet.create({
         elevation: 3,
       },
     }),
+  },
+  serviceCardContainer: {
+    overflow: 'hidden',
+    borderRadius: 20,
+    height: '100%',
   },
   serviceCardContent: {
     padding: 20,
@@ -1190,6 +1288,10 @@ const styles = StyleSheet.create({
         elevation: 2,
       },
     }),
+  },
+  serviceEditContainer: {
+    overflow: 'hidden',
+    borderRadius: 12,
   },
   serviceEditHeader: {
     flexDirection: 'row',
@@ -1384,6 +1486,10 @@ const styles = StyleSheet.create({
         elevation: 4,
       },
     }),
+  },
+  cardContainer: {
+    overflow: 'hidden',
+    borderRadius: 12,
   },
   reviewHeader: {
     flexDirection: 'row',
