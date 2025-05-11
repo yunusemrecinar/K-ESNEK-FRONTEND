@@ -1,21 +1,33 @@
 import React, { useCallback, useState, useEffect } from 'react';
 import { View, StyleSheet, FlatList, RefreshControl, Dimensions } from 'react-native';
-import { Text, Card, Chip, ActivityIndicator, Button, Searchbar, useTheme } from 'react-native-paper';
+import { Text, Card, Chip, ActivityIndicator, Button, Searchbar, useTheme, Snackbar } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { applicationsApi, JobApplication } from '../../services/api/applications';
+import { apiClient } from '../../services/api/client';
+import { jobsApi, JobResponse } from '../../services/api/jobs';
+import { employerService } from '../../services/api/employer';
+import { EmployerProfile } from '../../types/profile';
 
 // Types for the application
 interface Application {
-  id: string;
+  id: number;
+  jobId: number;
+  applicationStatus: string;
+  coverLetter?: string;
+  resumeId?: number;
+  answers?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+  // UI display properties (may come from job details)
   jobTitle: string;
   companyName: string;
-  status: 'pending' | 'accepted' | 'rejected';
-  appliedDate: Date;
-  location: string;
-  salary: string;
+  location?: string;
+  salary?: string;
 }
 
 // Define the navigation param list type
@@ -31,30 +43,162 @@ const ApplicationsScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'pending' | 'accepted' | 'rejected'>('all');
+  const [error, setError] = useState<string | null>(null);
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
+  // Cache for job and employer details to avoid duplicate requests
+  const [employerCache, setEmployerCache] = useState<Record<number, EmployerProfile>>({});
   const theme = useTheme();
   const navigation = useNavigation<ApplicationsScreenNavigationProp>();
+
+  // Fetch employer details by ID
+  const fetchEmployerDetails = async (employerId: number): Promise<EmployerProfile | null> => {
+    // Check cache first
+    if (employerCache[employerId]) {
+      return employerCache[employerId];
+    }
+    
+    try {
+      const employer = await employerService.getEmployerProfile(employerId);
+      // Update cache
+      setEmployerCache(prevCache => ({
+        ...prevCache,
+        [employerId]: employer
+      }));
+      return employer;
+    } catch (error) {
+      console.error(`Error fetching employer details for ID ${employerId}:`, error);
+      return null;
+    }
+  };
+
+  // Fetch job details by ID
+  const fetchJobDetails = async (jobId: number): Promise<Partial<Application> | null> => {
+    try {
+      const response = await jobsApi.getJobById(jobId);
+      
+      if (response.isSuccess && response.data) {
+        const jobData = response.data;
+        
+        // Default job details without employer info
+        const jobDetails: Partial<Application> = {
+          jobTitle: jobData.title,
+          companyName: `Company #${jobData.employerId}`,
+          location: jobData.city && jobData.country 
+            ? `${jobData.city}, ${jobData.country}`
+            : jobData.jobLocationType || '',
+          salary: jobData.currency 
+            ? `${jobData.currency}${jobData.minSalary} - ${jobData.currency}${jobData.maxSalary}`
+            : `${jobData.minSalary} - ${jobData.maxSalary}`
+        };
+        
+        // Try to fetch employer details to get company name
+        try {
+          const employer = await fetchEmployerDetails(jobData.employerId);
+          if (employer) {
+            jobDetails.companyName = employer.name;
+          }
+        } catch (err) {
+          console.log('Could not fetch employer details:', err);
+          // Continue with default company name
+        }
+        
+        return jobDetails;
+      }
+      return null;
+    } catch (error) {
+      console.error(`Error fetching job details for job ID ${jobId}:`, error);
+      return null;
+    }
+  };
+
+  // Fetch applications with job details
+  const fetchApplicationsWithJobDetails = async (applications: Application[]): Promise<Application[]> => {
+    // Process applications in smaller batches to avoid too many concurrent requests
+    const batchSize = 5;
+    const enhancedApplications: Application[] = [...applications];
+    
+    for (let i = 0; i < applications.length; i += batchSize) {
+      const batch = applications.slice(i, i + batchSize);
+      const batchPromises = batch.map(async (app, index) => {
+        const jobDetails = await fetchJobDetails(app.jobId);
+        if (jobDetails) {
+          enhancedApplications[i + index] = {
+            ...app,
+            ...jobDetails
+          };
+        }
+      });
+      
+      await Promise.all(batchPromises);
+    }
+    
+    return enhancedApplications;
+  };
 
   // Fetch applications
   const fetchApplications = useCallback(async () => {
     try {
-      // TODO: Implement actual API call
-      // Simulated API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      const mockApplications: Application[] = [
-        {
-          id: '1',
-          jobTitle: 'Software Developer',
-          companyName: 'Tech Corp',
-          status: 'pending',
-          appliedDate: new Date(),
-          location: 'Istanbul, Turkey',
-          salary: '$50,000 - $70,000'
-        },
-        // Add more mock data as needed
-      ];
-      setApplications(mockApplications);
+      setIsLoading(true);
+      setError(null);
+
+      // Fetch applications from API
+      const response = await applicationsApi.getUserApplications();
+      
+      if (response.isSuccess && response.data) {
+        console.log('Fetched applications:', response.data);
+        
+        // Map the API response to our Application interface
+        const formattedApplications: Application[] = response.data.map(app => ({
+          id: app.id,
+          jobId: app.jobId,
+          applicationStatus: app.applicationStatus || 'Pending',
+          coverLetter: app.coverLetter,
+          resumeId: app.resumeId,
+          answers: app.answers,
+          notes: app.notes,
+          createdAt: app.createdAt,
+          updatedAt: app.updatedAt,
+          // Default values, will be updated with actual job details
+          jobTitle: `Job #${app.jobId}`,
+          companyName: 'Company',
+          location: '',
+          salary: ''
+        }));
+        
+        // First set applications with basic info to show something quickly
+        setApplications(formattedApplications);
+        
+        // Then fetch job details for each application and update the UI
+        const enhancedApplications = await fetchApplicationsWithJobDetails(formattedApplications);
+        setApplications(enhancedApplications);
+      } else {
+        console.error('Failed to fetch applications:', response.message);
+        setError('Failed to load applications. Please try again.');
+        setSnackbarVisible(true);
+        
+        // Use mock data as fallback
+        const mockApplications: Application[] = [
+          {
+            id: 1,
+            jobId: 1,
+            applicationStatus: 'Pending',
+            jobTitle: 'Software Developer',
+            companyName: 'Tech Corp',
+            location: 'Istanbul, Turkey',
+            salary: '$50,000 - $70,000',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          },
+          // Add more mock data as needed
+        ];
+        setApplications(mockApplications);
+      }
     } catch (error) {
       console.error('Error fetching applications:', error);
+      setError('Error loading applications. Please try again.');
+      setSnackbarVisible(true);
+      // Fallback to empty applications list
+      setApplications([]);
     } finally {
       setIsLoading(false);
       setRefreshing(false);
@@ -75,18 +219,43 @@ const ApplicationsScreen = () => {
   // Filter applications
   const filteredApplications = applications.filter(app => {
     const matchesSearch = app.jobTitle.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         app.companyName.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesFilter = selectedFilter === 'all' || app.status === selectedFilter;
+                       app.companyName.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    // Map API status values to our filter values
+    const statusMap: Record<string, 'pending' | 'accepted' | 'rejected'> = {
+      'Pending': 'pending',
+      'In Review': 'pending',
+      'Approved': 'accepted',
+      'Accepted': 'accepted',
+      'Hired': 'accepted',
+      'Rejected': 'rejected',
+    };
+    
+    const appStatus = statusMap[app.applicationStatus] || 'pending';
+    const matchesFilter = selectedFilter === 'all' || appStatus === selectedFilter;
+    
     return matchesSearch && matchesFilter;
   });
 
   // Status chip color mapping
-  const getStatusColor = (status: Application['status']) => {
-    switch (status) {
-      case 'pending': return theme.colors.primary;
-      case 'accepted': return '#4CAF50';
-      case 'rejected': return theme.colors.error;
-      default: return theme.colors.primary;
+  const getStatusColor = (status: string) => {
+    // Convert API status to our status format
+    const normalizedStatus = status.toLowerCase();
+    if (normalizedStatus.includes('pend') || normalizedStatus.includes('review')) 
+      return theme.colors.primary;
+    if (normalizedStatus.includes('accept') || normalizedStatus.includes('approve') || normalizedStatus.includes('hire')) 
+      return '#4CAF50';
+    if (normalizedStatus.includes('reject')) 
+      return theme.colors.error;
+    return theme.colors.primary;
+  };
+
+  // Format date helper
+  const formatDate = (dateString: string) => {
+    try {
+      return format(new Date(dateString), 'MMM dd, yyyy');
+    } catch (e) {
+      return 'Unknown date';
     }
   };
 
@@ -102,33 +271,37 @@ const ApplicationsScreen = () => {
           <Chip
             mode="flat"
             textStyle={{ color: '#fff' }}
-            style={[styles.statusChip, { backgroundColor: getStatusColor(item.status) }]}
+            style={[styles.statusChip, { backgroundColor: getStatusColor(item.applicationStatus) }]}
           >
-            {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
+            {item.applicationStatus.charAt(0).toUpperCase() + item.applicationStatus.slice(1)}
           </Chip>
         </View>
         
         <View style={styles.detailsContainer}>
-          <View style={styles.detailRow}>
-            <MaterialCommunityIcons name="map-marker" size={16} color={theme.colors.primary} />
-            <Text variant="bodyMedium" style={styles.detailText}>{item.location}</Text>
-          </View>
+          {item.location ? (
+            <View style={styles.detailRow}>
+              <MaterialCommunityIcons name="map-marker" size={16} color={theme.colors.primary} />
+              <Text variant="bodyMedium" style={styles.detailText}>{item.location}</Text>
+            </View>
+          ) : null}
           <View style={styles.detailRow}>
             <MaterialCommunityIcons name="calendar" size={16} color={theme.colors.primary} />
             <Text variant="bodyMedium" style={styles.detailText}>
-              Applied {format(item.appliedDate, 'MMM dd, yyyy')}
+              Applied {formatDate(item.createdAt)}
             </Text>
           </View>
-          <View style={styles.detailRow}>
-            <MaterialCommunityIcons name="currency-usd" size={16} color={theme.colors.primary} />
-            <Text variant="bodyMedium" style={styles.detailText}>{item.salary}</Text>
-          </View>
+          {item.salary ? (
+            <View style={styles.detailRow}>
+              <MaterialCommunityIcons name="currency-usd" size={16} color={theme.colors.primary} />
+              <Text variant="bodyMedium" style={styles.detailText}>{item.salary}</Text>
+            </View>
+          ) : null}
         </View>
       </Card.Content>
       <Card.Actions>
         <Button 
           mode="text" 
-          onPress={() => navigation.navigate('ApplicationDetails', { applicationId: item.id })}
+          onPress={() => navigation.navigate('ApplicationDetails', { applicationId: item.id.toString() })}
         >
           View Details
         </Button>
@@ -180,7 +353,7 @@ const ApplicationsScreen = () => {
         <FlatList
           data={filteredApplications}
           renderItem={renderApplicationCard}
-          keyExtractor={item => item.id}
+          keyExtractor={item => item.id.toString()}
           contentContainerStyle={styles.listContainer}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
@@ -189,6 +362,15 @@ const ApplicationsScreen = () => {
           showsVerticalScrollIndicator={false}
         />
       )}
+      
+      <Snackbar
+        visible={snackbarVisible}
+        onDismiss={() => setSnackbarVisible(false)}
+        duration={3000}
+        style={styles.snackbar}
+      >
+        {error || 'An error occurred'}
+      </Snackbar>
     </SafeAreaView>
   );
 };
@@ -271,6 +453,12 @@ const styles = StyleSheet.create({
   emptyStateDescription: {
     textAlign: 'center',
     opacity: 0.7,
+  },
+  snackbar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
   },
 });
 

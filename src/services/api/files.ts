@@ -77,17 +77,42 @@ export const fileService = {
    * @returns File blob ID
    */
   uploadEmployeeCV: async (userId: number | string, formData: FormData): Promise<number> => {
-    const response = await apiClient.instance.post<FileUploadResponse>(
-      `/employee-profile/upload/cv/${userId}`,
-      formData,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
+    try {
+      console.log(`📤 Uploading CV for user ID: ${userId}`);
+      
+      // Use the direct files upload endpoint instead of the employee-profile endpoint
+      // This avoids validation issues with the user ID
+      const endpoint = `/files/upload`;
+      console.log(`🔗 Using endpoint: ${endpoint}`);
+      
+      // Log form data contents (debugging)
+      if (__DEV__) {
+        // @ts-ignore
+        for (const [key, value] of formData._parts) {
+          const valueInfo = typeof value === 'object' ? 
+            `${value.name}, type: ${value.type}, size: ${value.size || 'unknown'}` : 
+            value;
+          console.log(`📋 FormData - ${key}: ${valueInfo}`);
+        }
       }
-    );
-    
-    return response.data.data;
+      
+      const response = await apiClient.instance.post<FileUploadResponse>(
+        endpoint,
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      );
+      
+      console.log(`✅ Upload success, File ID: ${response.data.data}`);
+      return response.data.data;
+    } catch (error: any) {
+      console.error('❌ CV upload failed:', error);
+      console.error('Error details:', error.response?.data || error.message);
+      throw error;
+    }
   },
   
   /**

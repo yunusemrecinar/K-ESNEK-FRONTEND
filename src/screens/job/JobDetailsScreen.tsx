@@ -8,6 +8,8 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MainStackParamList } from '../../navigation/MainNavigator';
 import { apiClient } from '../../services/api/client';
 import { savedJobsApi } from '../../services/api/savedJobs';
+import { applicationsApi } from '../../services/api/applications';
+import JobApplicationModal from '../../components/jobs/JobApplicationModal';
 
 type JobDetailsRouteProp = RouteProp<MainStackParamList, 'JobDetails'>;
 type JobDetailsNavigationProp = NativeStackNavigationProp<MainStackParamList>;
@@ -46,9 +48,11 @@ const JobDetailsScreen: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSaved, setIsSaved] = useState(false);
+  const [hasApplied, setHasApplied] = useState(false);
   const [savingJob, setSavingJob] = useState(false);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [applicationModalVisible, setApplicationModalVisible] = useState(false);
   const theme = useTheme();
   const route = useRoute<JobDetailsRouteProp>();
   const navigation = useNavigation<JobDetailsNavigationProp>();
@@ -60,7 +64,7 @@ const JobDetailsScreen: React.FC = () => {
     setSnackbarVisible(true);
   };
 
-  // Fetch job details and check if job is saved
+  // Fetch job details, check if job is saved, and if user has applied
   useEffect(() => {
     const fetchJobDetails = async () => {
       try {
@@ -70,6 +74,12 @@ const JobDetailsScreen: React.FC = () => {
         // Check if job is saved
         const jobSaved = await savedJobsApi.isJobSaved(jobId);
         setIsSaved(jobSaved);
+
+        // Check if user has applied for this job
+        const applicationResponse = await applicationsApi.hasAppliedForJob(jobId);
+        if (applicationResponse.isSuccess && applicationResponse.data) {
+          setHasApplied(true);
+        }
 
         // Make actual API call to get job details
         const response = await apiClient.instance.get(`/jobs/${jobId}`);
@@ -220,6 +230,12 @@ const JobDetailsScreen: React.FC = () => {
     } finally {
       setSavingJob(false);
     }
+  };
+
+  // Handle successful job application
+  const handleApplicationSuccess = () => {
+    setHasApplied(true);
+    showSnackbar('Your application has been submitted successfully!');
   };
 
   if (isLoading) {
@@ -409,14 +425,12 @@ const JobDetailsScreen: React.FC = () => {
         <View style={styles.actionsContainer}>
           <Button 
             mode="contained" 
-            icon="check-circle" 
+            icon={hasApplied ? "check-bold" : "check-circle"} 
             style={[styles.actionButton, styles.primaryButton]} 
-            onPress={() => {
-              // TODO: Implement job application
-              console.log('Apply for job');
-            }}
+            onPress={() => hasApplied ? showSnackbar('You have already applied for this job') : setApplicationModalVisible(true)}
+            disabled={hasApplied}
           >
-            Apply for This Job
+            {hasApplied ? "Already Applied" : "Apply for This Job"}
           </Button>
           <Button 
             mode="contained" 
@@ -454,6 +468,16 @@ const JobDetailsScreen: React.FC = () => {
       >
         {snackbarMessage}
       </Snackbar>
+
+      {job && (
+        <JobApplicationModal
+          visible={applicationModalVisible}
+          onDismiss={() => setApplicationModalVisible(false)}
+          onSuccess={handleApplicationSuccess}
+          jobId={job.id}
+          jobTitle={job.title}
+        />
+      )}
     </SafeAreaView>
   );
 };

@@ -103,6 +103,20 @@ export const apiClient = {
     return await AsyncStorage.getItem('refreshToken');
   },
   
+  getUserId: async (): Promise<string | null> => {
+    try {
+      const userStr = await AsyncStorage.getItem('user');
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        return user.id || null;
+      }
+      return null;
+    } catch (error) {
+      console.error('Error getting user ID from storage:', error);
+      return null;
+    }
+  },
+  
   storeTokens: async (token: string, refreshToken?: string): Promise<void> => {
     await AsyncStorage.setItem('token', token);
     if (refreshToken) {

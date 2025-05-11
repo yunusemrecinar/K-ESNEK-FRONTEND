@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Linking, TouchableOpacity } from 'react-native';
-import { Text, Card, Chip, Button, Divider, ActivityIndicator, useTheme } from 'react-native-paper';
+import { Text, Card, Chip, Button, Divider, ActivityIndicator, useTheme, Snackbar } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { format } from 'date-fns';
+import { applicationsApi, JobApplication } from '../../services/api/applications';
+import { jobsApi, JobResponse } from '../../services/api/jobs';
+import { employerService } from '../../services/api/employer';
+import { EmployerProfile } from '../../types/profile';
 
 // Define the types
 type RootStackParamList = {
@@ -18,22 +22,28 @@ type ApplicationDetailsNavigationProp = NativeStackNavigationProp<RootStackParam
 
 interface Application {
   id: string;
+  jobId: number;
+  applicationStatus: string;
+  coverLetter?: string;
+  resumeId?: number;
   jobTitle: string;
   companyName: string;
-  status: 'pending' | 'accepted' | 'rejected';
-  appliedDate: Date;
-  location: string;
-  salary: string;
-  description: string;
-  requirements: string[];
-  responsibilities: string[];
+  employerId?: number;
+  location?: string;
+  salary?: string;
+  description?: string;
+  requirements?: string[];
+  responsibilities?: string[];
   contactEmail?: string;
   contactPhone?: string;
+  appliedDate: Date;
 }
 
 const ApplicationDetailsScreen = () => {
   const [application, setApplication] = useState<Application | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
   const theme = useTheme();
   const route = useRoute<ApplicationDetailsRouteProp>();
   const navigation = useNavigation<ApplicationDetailsNavigationProp>();
@@ -43,41 +53,87 @@ const ApplicationDetailsScreen = () => {
   useEffect(() => {
     const fetchApplicationDetails = async () => {
       try {
-        // TODO: Replace with actual API call
-        // Simulating API call with timeout
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        setIsLoading(true);
+        setError(null);
         
-        // Mock data for the application details
-        const mockApplication: Application = {
-          id: applicationId,
-          jobTitle: 'Software Developer',
-          companyName: 'Tech Corp',
-          status: 'pending',
-          appliedDate: new Date(),
-          location: 'Istanbul, Turkey',
-          salary: '$50,000 - $70,000',
-          description: 'We are looking for a passionate Software Developer to design, develop and implement software solutions. The ideal candidate will have a strong background in web development, be proficient with JavaScript/TypeScript, and have experience with React and React Native.',
-          requirements: [
-            'Bachelor\'s degree in Computer Science or related field',
-            '2+ years of experience with React/React Native',
-            'Proficiency in TypeScript',
-            'Experience with RESTful APIs',
-            'Knowledge of mobile app development processes'
-          ],
-          responsibilities: [
-            'Develop mobile applications using React Native',
-            'Collaborate with cross-functional teams',
-            'Participate in code reviews',
-            'Troubleshoot and debug applications',
-            'Implement responsive design'
-          ],
-          contactEmail: 'hr@techcorp.com',
-          contactPhone: '+90 212 555 1234'
+        // Fetch application data
+        const appResponse = await applicationsApi.getApplicationById(parseInt(applicationId));
+        
+        if (!appResponse.isSuccess || !appResponse.data) {
+          throw new Error(appResponse.message || 'Failed to fetch application details');
+        }
+        
+        const applicationData = appResponse.data;
+        
+        // Fetch job details using jobId from the application
+        const jobResponse = await jobsApi.getJobById(applicationData.jobId);
+        
+        if (!jobResponse.isSuccess || !jobResponse.data) {
+          throw new Error('Failed to fetch job details for this application');
+        }
+        
+        const jobData = jobResponse.data;
+        
+        // Try to fetch employer details
+        let employerName = 'Employer';
+        let employerEmail: string | undefined;
+        let employerPhone: string | undefined;
+        
+        try {
+          if (jobData.employerId) {
+            const employer = await employerService.getEmployerProfile(jobData.employerId);
+            if (employer) {
+              employerName = employer.name;
+              employerEmail = employer.email;
+            }
+          }
+        } catch (err) {
+          console.log('Could not fetch employer details:', err);
+        }
+        
+        // Format the combined data
+        const formattedApp: Application = {
+          id: applicationData.id.toString(),
+          jobId: applicationData.jobId,
+          applicationStatus: applicationData.applicationStatus || 'Pending',
+          coverLetter: applicationData.coverLetter,
+          resumeId: applicationData.resumeId,
+          employerId: jobData.employerId,
+          appliedDate: new Date(), // Default to current date in case parsing fails
+          jobTitle: jobData.title,
+          companyName: employerName,
+          description: jobData.description,
+          location: jobData.city && jobData.country 
+            ? `${jobData.city}, ${jobData.country}` 
+            : jobData.jobLocationType || '',
+          salary: jobData.currency 
+            ? `${jobData.currency}${jobData.minSalary} - ${jobData.currency}${jobData.maxSalary}`
+            : `${jobData.minSalary} - ${jobData.maxSalary}`,
+          requirements: jobData.jobRequirements?.map(req => req.requirement) || [],
+          responsibilities: jobData.jobResponsibilities?.map(resp => resp.responsibility) || [],
+          contactEmail: employerEmail,
+          contactPhone: employerPhone
         };
         
-        setApplication(mockApplication);
+        // Safely parse the date after object creation
+        try {
+          if (applicationData.createdAt) {
+            const parsedDate = new Date(applicationData.createdAt);
+            // Check if date is valid
+            if (!isNaN(parsedDate.getTime())) {
+              formattedApp.appliedDate = parsedDate;
+            }
+          }
+        } catch (err) {
+          console.log('Error parsing date:', err);
+          // Keep default date if parsing fails
+        }
+        
+        setApplication(formattedApp);
       } catch (error) {
         console.error('Error fetching application details:', error);
+        setError(error instanceof Error ? error.message : 'Failed to load application details');
+        setSnackbarVisible(true);
       } finally {
         setIsLoading(false);
       }
@@ -87,13 +143,16 @@ const ApplicationDetailsScreen = () => {
   }, [applicationId]);
 
   // Status chip color mapping
-  const getStatusColor = (status: Application['status']) => {
-    switch (status) {
-      case 'pending': return theme.colors.primary;
-      case 'accepted': return '#4CAF50';
-      case 'rejected': return theme.colors.error;
-      default: return theme.colors.primary;
-    }
+  const getStatusColor = (status: string) => {
+    // Convert API status to our status format
+    const normalizedStatus = status.toLowerCase();
+    if (normalizedStatus.includes('pend') || normalizedStatus.includes('review')) 
+      return theme.colors.primary;
+    if (normalizedStatus.includes('accept') || normalizedStatus.includes('approve') || normalizedStatus.includes('hire')) 
+      return '#4CAF50';
+    if (normalizedStatus.includes('reject')) 
+      return theme.colors.error;
+    return theme.colors.primary;
   };
 
   // Handle opening email
@@ -104,6 +163,49 @@ const ApplicationDetailsScreen = () => {
   // Handle opening phone
   const handlePhonePress = (phone: string) => {
     Linking.openURL(`tel:${phone}`);
+  };
+
+  // Handle withdraw application
+  const handleWithdraw = async () => {
+    if (!application) return;
+    
+    try {
+      const response = await applicationsApi.withdrawApplication(parseInt(application.id));
+      if (response.isSuccess) {
+        setSnackbarVisible(true);
+        setError('Application withdrawn successfully');
+        
+        // Update the local application status
+        setApplication(prev => 
+          prev ? { ...prev, applicationStatus: 'Withdrawn' } : null
+        );
+      } else {
+        setSnackbarVisible(true);
+        setError('Failed to withdraw application: ' + response.message);
+      }
+    } catch (error) {
+      console.error('Error withdrawing application:', error);
+      setSnackbarVisible(true);
+      setError('Error withdrawing application');
+    }
+  };
+
+  // Format date helper
+  const formatDate = (dateString: Date | string): string => {
+    try {
+      if (typeof dateString === 'string') {
+        const parsedDate = new Date(dateString);
+        if (isNaN(parsedDate.getTime())) {
+          return 'Unknown date';
+        }
+        return format(parsedDate, 'MMM dd, yyyy');
+      }
+      // If it's already a Date object
+      return format(dateString, 'MMM dd, yyyy');
+    } catch (e) {
+      console.error('Error formatting date:', e);
+      return 'Unknown date';
+    }
   };
 
   if (isLoading) {
@@ -154,53 +256,73 @@ const ApplicationDetailsScreen = () => {
               <Chip
                 mode="flat"
                 textStyle={{ color: '#fff' }}
-                style={[styles.statusChip, { backgroundColor: getStatusColor(application.status) }]}
+                style={[styles.statusChip, { backgroundColor: getStatusColor(application.applicationStatus) }]}
               >
-                {application.status.charAt(0).toUpperCase() + application.status.slice(1)}
+                {application.applicationStatus.charAt(0).toUpperCase() + application.applicationStatus.slice(1)}
               </Chip>
             </View>
 
             <View style={styles.detailsContainer}>
-              <View style={styles.detailRow}>
-                <MaterialCommunityIcons name="map-marker" size={20} color={theme.colors.primary} />
-                <Text variant="bodyLarge" style={styles.detailText}>{application.location}</Text>
-              </View>
+              {application.location && (
+                <View style={styles.detailRow}>
+                  <MaterialCommunityIcons name="map-marker" size={20} color={theme.colors.primary} />
+                  <Text variant="bodyLarge" style={styles.detailText}>{application.location}</Text>
+                </View>
+              )}
               <View style={styles.detailRow}>
                 <MaterialCommunityIcons name="calendar" size={20} color={theme.colors.primary} />
                 <Text variant="bodyLarge" style={styles.detailText}>
-                  Applied {format(application.appliedDate, 'MMM dd, yyyy')}
+                  Applied {formatDate(application.appliedDate)}
                 </Text>
               </View>
-              <View style={styles.detailRow}>
-                <MaterialCommunityIcons name="currency-usd" size={20} color={theme.colors.primary} />
-                <Text variant="bodyLarge" style={styles.detailText}>{application.salary}</Text>
-              </View>
+              {application.salary && (
+                <View style={styles.detailRow}>
+                  <MaterialCommunityIcons name="currency-usd" size={20} color={theme.colors.primary} />
+                  <Text variant="bodyLarge" style={styles.detailText}>{application.salary}</Text>
+                </View>
+              )}
+              {application.coverLetter && (
+                <>
+                  <Divider style={styles.divider} />
+                  <Text variant="titleMedium" style={styles.sectionTitle}>Your Cover Letter</Text>
+                  <Text variant="bodyMedium" style={styles.descriptionText}>{application.coverLetter}</Text>
+                </>
+              )}
             </View>
 
-            <Divider style={styles.divider} />
+            {application.description && (
+              <>
+                <Divider style={styles.divider} />
+                <Text variant="titleMedium" style={styles.sectionTitle}>Job Description</Text>
+                <Text variant="bodyMedium" style={styles.descriptionText}>{application.description}</Text>
+              </>
+            )}
 
-            <Text variant="titleMedium" style={styles.sectionTitle}>Job Description</Text>
-            <Text variant="bodyMedium" style={styles.descriptionText}>{application.description}</Text>
+            {application.requirements && application.requirements.length > 0 && (
+              <>
+                <Divider style={styles.divider} />
+                <Text variant="titleMedium" style={styles.sectionTitle}>Requirements</Text>
+                {application.requirements.map((requirement, index) => (
+                  <View key={`req-${index}`} style={styles.listItem}>
+                    <MaterialCommunityIcons name="check-circle" size={16} color={theme.colors.primary} />
+                    <Text variant="bodyMedium" style={styles.listItemText}>{requirement}</Text>
+                  </View>
+                ))}
+              </>
+            )}
 
-            <Divider style={styles.divider} />
-
-            <Text variant="titleMedium" style={styles.sectionTitle}>Requirements</Text>
-            {application.requirements.map((requirement, index) => (
-              <View key={`req-${index}`} style={styles.listItem}>
-                <MaterialCommunityIcons name="check-circle" size={16} color={theme.colors.primary} />
-                <Text variant="bodyMedium" style={styles.listItemText}>{requirement}</Text>
-              </View>
-            ))}
-
-            <Divider style={styles.divider} />
-
-            <Text variant="titleMedium" style={styles.sectionTitle}>Responsibilities</Text>
-            {application.responsibilities.map((responsibility, index) => (
-              <View key={`resp-${index}`} style={styles.listItem}>
-                <MaterialCommunityIcons name="check-circle" size={16} color={theme.colors.primary} />
-                <Text variant="bodyMedium" style={styles.listItemText}>{responsibility}</Text>
-              </View>
-            ))}
+            {application.responsibilities && application.responsibilities.length > 0 && (
+              <>
+                <Divider style={styles.divider} />
+                <Text variant="titleMedium" style={styles.sectionTitle}>Responsibilities</Text>
+                {application.responsibilities.map((responsibility, index) => (
+                  <View key={`resp-${index}`} style={styles.listItem}>
+                    <MaterialCommunityIcons name="check-circle" size={16} color={theme.colors.primary} />
+                    <Text variant="bodyMedium" style={styles.listItemText}>{responsibility}</Text>
+                  </View>
+                ))}
+              </>
+            )}
 
             {(application.contactEmail || application.contactPhone) && (
               <>
@@ -232,36 +354,44 @@ const ApplicationDetailsScreen = () => {
         </Card>
 
         <View style={styles.actionsContainer}>
-          <Button 
-            mode="contained" 
-            icon="chat" 
-            style={[styles.actionButton, styles.primaryButton]} 
-            buttonColor="#4A87C9"
-            onPress={() => {
-              // Navigate to Chat screen with the employer information
-              navigation.navigate('Chat', {
-                userId: application.id.toString(),
-                userName: application.companyName || 'Employer',
-                userImage: `https://i.pravatar.cc/150?u=${application.id}` // Generate avatar based on ID
-              });
-            }}
-          >
-            Contact Employer
-          </Button>
+          {application.employerId && (
+            <Button 
+              mode="contained" 
+              icon="chat" 
+              style={[styles.actionButton, styles.primaryButton]} 
+              buttonColor="#4A87C9"
+              onPress={() => {
+                // Navigate to Chat screen with the employer information
+                navigation.navigate('Chat', {
+                  userId: application.employerId?.toString() || '',
+                  userName: application.companyName || 'Employer',
+                  userImage: `https://i.pravatar.cc/150?u=${application.employerId}` // Generate avatar based on ID
+                });
+              }}
+            >
+              Contact Employer
+            </Button>
+          )}
           <Button 
             mode="outlined" 
             icon="close" 
             style={styles.actionButton} 
             textColor={theme.colors.error}
-            onPress={() => {
-              // TODO: Implement withdraw application
-              console.log('Withdraw application');
-            }}
+            onPress={handleWithdraw}
+            disabled={application.applicationStatus.toLowerCase() === 'withdrawn'}
           >
             Withdraw Application
           </Button>
         </View>
       </ScrollView>
+
+      <Snackbar
+        visible={snackbarVisible}
+        onDismiss={() => setSnackbarVisible(false)}
+        duration={3000}
+      >
+        {error || 'An error occurred'}
+      </Snackbar>
     </SafeAreaView>
   );
 };

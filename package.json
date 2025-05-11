@@ -24,6 +24,7 @@
     "expo-linear-gradient": "~12.7.2",
     "expo-media-library": "~15.9.2",
     "expo-status-bar": "~1.11.1",
+    "jwt-decode": "^4.0.0",
     "react": "18.2.0",
     "react-native": "0.73.2",
     "react-native-fast-image": "^8.6.3",
