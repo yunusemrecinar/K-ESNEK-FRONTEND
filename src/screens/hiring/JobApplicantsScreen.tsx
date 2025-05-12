@@ -1,16 +1,23 @@
-import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { View, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { Text, Card, Button, useTheme, Chip, Avatar, Searchbar, Divider } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { apiClient } from '../../services/api/client';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { employeeService } from '../../services/api/employee';
+import { EmployeeProfile } from '../../types/profile';
 
 // Define types
-type JobApplicantsRouteProp = RouteProp<{
+type HiringStackParamList = {
   JobApplicants: { jobId: number };
-}, 'JobApplicants'>;
+  ApplicantProfile: { userId: number };
+  ApplicationDetails: { applicationId: number };
+};
+
+type JobApplicantsRouteProp = RouteProp<HiringStackParamList, 'JobApplicants'>;
+type JobApplicantsNavigationProp = NativeStackNavigationProp<HiringStackParamList>;
 
 interface JobApplication {
   id: number;
@@ -21,8 +28,8 @@ interface JobApplication {
   resumeId: number;
   answers?: string;
   notes?: string;
-  createdAt: string;
-  updatedAt: string;
+  createdAt?: string;
+  updatedAt?: string;
   user?: {
     id: number;
     firstName: string;
@@ -30,6 +37,8 @@ interface JobApplication {
     email: string;
     profilePicture?: string;
   };
+  // Cache for fetched employee profile
+  employeeProfile?: EmployeeProfile;
 }
 
 interface Job {
@@ -40,22 +49,27 @@ interface Job {
 
 const JobApplicantsScreen = () => {
   const theme = useTheme();
-  const navigation = useNavigation();
+  const navigation = useNavigation<JobApplicantsNavigationProp>();
   const route = useRoute<JobApplicantsRouteProp>();
   const { jobId } = route.params;
   
   const [job, setJob] = useState<Job | null>(null);
   const [applications, setApplications] = useState<JobApplication[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [fetchingUserDetails, setFetchingUserDetails] = useState(false);
+  const [missingProfilesCount, setMissingProfilesCount] = useState(0);
 
   const statusOptions = ['All', 'Pending', 'Reviewing', 'Interviewed', 'Accepted', 'Rejected'];
 
-  const fetchJobApplicants = async () => {
+  const fetchJobApplicants = async (isRefreshing = false) => {
     try {
-      setLoading(true);
+      if (!isRefreshing) {
+        setLoading(true);
+      }
       setError(null);
       
       // Fetch job details with applications
@@ -64,23 +78,193 @@ const JobApplicantsScreen = () => {
       if (response.data && response.data.success) {
         setJob(response.data.data);
         if (response.data.data.applications) {
+          console.log('Applications received:', response.data.data.applications.length);
+          
+          // Check for missing date fields and try to fetch full application data if needed
+          const apps = response.data.data.applications;
+          const needsDateFields = apps.length > 0 && (!apps[0].createdAt || !apps[0].updatedAt);
+          
+          if (needsDateFields) {
+            console.log('Applications missing date fields, attempting to fetch complete data...');
+            try {
+              // Attempt to get full application data - this is optional and will be skipped if it fails
+              await fetchApplicationDates(apps);
+            } catch (dateError) {
+              console.warn('Could not fetch complete application data:', dateError);
+              // Continue with existing data anyway
+            }
+          }
+          
           setApplications(response.data.data.applications);
+          // Fetch user details for each application
+          fetchUserDetailsForApplications(response.data.data.applications);
+        } else {
+          console.log('No applications found in response');
+          setApplications([]);
         }
       } else if (response.data) {
         setJob(response.data);
         if (response.data.applications) {
+          console.log('Applications received:', response.data.applications.length);
           setApplications(response.data.applications);
+          // Fetch user details for each application
+          fetchUserDetailsForApplications(response.data.applications);
+        } else {
+          console.log('No applications found in response');
+          setApplications([]);
         }
       } else {
         setError('Failed to fetch job applicants');
+        setApplications([]);
       }
     } catch (err) {
       console.error('Error fetching job applicants:', err);
       setError('Failed to load applicants. Please try again.');
+      setApplications([]);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
+
+  const fetchUserDetailsForApplications = async (applications: JobApplication[]) => {
+    if (!applications || applications.length === 0) return;
+    
+    setFetchingUserDetails(true);
+    let authError = false;
+    let notFoundCount = 0;
+    
+    try {
+      // Process applications in smaller batches to avoid too many concurrent requests
+      const batchSize = 3;
+      const updatedApplications = [...applications];
+      
+      batchLoop: for (let i = 0; i < applications.length; i += batchSize) {
+        const batch = applications.slice(i, Math.min(i + batchSize, applications.length));
+        
+        // Create an array of promises for this batch
+        const batchPromises = batch.map(async (app, batchIndex) => {
+          const appIndex = i + batchIndex;
+          
+          if (app.userId) {
+            try {
+              // Fetch employee profile for this user using the public endpoint
+              const employeeProfile = await employeeService.getPublicEmployeeProfile(app.userId);
+              
+              // Update application with user details
+              updatedApplications[appIndex] = {
+                ...app,
+                employeeProfile,
+                user: {
+                  id: app.userId,
+                  firstName: employeeProfile.firstName || '',
+                  lastName: employeeProfile.lastName || '',
+                  // Use a default email since it's not available in the profile
+                  email: app.user?.email || `employee${app.userId}@example.com`,
+                  profilePicture: employeeProfile.profilePictureUrl
+                }
+              };
+              
+              // Update the applications state incrementally to show progress
+              setApplications([...updatedApplications]);
+            } catch (error: any) {
+              console.error(`Error fetching details for user ${app.userId}:`, error);
+              
+              // Check if it's an authentication error
+              if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+                console.log('Authentication error when fetching employee profile');
+                authError = true;
+                // Return from this promise to handle auth error after all promises
+                return;
+              }
+              
+              // Handle 404 Not Found errors
+              if (error.response && error.response.status === 404) {
+                console.log(`Employee profile not found for user ${app.userId}`);
+                notFoundCount++;
+                
+                // Create basic profile with userId information only
+                updatedApplications[appIndex] = {
+                  ...app,
+                  user: {
+                    id: app.userId,
+                    firstName: '',
+                    lastName: '',
+                    email: `employee${app.userId}@example.com`,
+                    profilePicture: undefined
+                  }
+                };
+              }
+              
+              // Keep the original application if fetch fails
+            }
+          }
+        });
+        
+        // Wait for all promises in this batch to resolve
+        await Promise.all(batchPromises);
+        
+        // Stop processing batches if we encounter an auth error
+        if (authError) break batchLoop;
+      }
+      
+      // One final update in case any changes were missed
+      setApplications(updatedApplications);
+      
+      // Show warning if auth error occurred
+      if (authError) {
+        console.warn('Unable to fetch complete user profiles due to authentication issues');
+      }
+      
+      // Log the number of not found profiles
+      if (notFoundCount > 0) {
+        console.warn(`${notFoundCount} employee profiles were not found in the database`);
+      }
+    } catch (error) {
+      console.error('Error fetching user details:', error);
+    } finally {
+      setFetchingUserDetails(false);
+      setMissingProfilesCount(notFoundCount);
+    }
+  };
+
+  // Optional function to attempt fetching complete application data with dates
+  const fetchApplicationDates = async (applications: JobApplication[]) => {
+    // This function would ideally call a direct applications endpoint to get complete data
+    // For now, we'll just simulate a more detailed fetch
+    
+    const enhancedApplications = [...applications];
+    
+    for (let i = 0; i < applications.length; i++) {
+      const app = applications[i];
+      
+      try {
+        // Try to get the full application
+        const appResponse = await apiClient.instance.get(`/applications/${app.id}`);
+        
+        if (appResponse.data && appResponse.data.success) {
+          // Update application with complete data including dates
+          enhancedApplications[i] = {
+            ...app,
+            ...appResponse.data.data
+          };
+        }
+      } catch (error) {
+        console.log(`Could not fetch complete data for application ${app.id}`);
+        // Continue with existing data
+      }
+    }
+    
+    // Update applications state with enhanced data
+    setApplications(enhancedApplications);
+    
+    return enhancedApplications;
+  };
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchJobApplicants(true);
+  }, [jobId]);
 
   useEffect(() => {
     fetchJobApplicants();
@@ -128,74 +312,225 @@ const JobApplicantsScreen = () => {
     }
   };
 
-  const renderApplicantCard = ({ item }: { item: JobApplication }) => (
-    <Card style={styles.card} mode="outlined">
-      <Card.Content>
-        <View style={styles.applicantHeader}>
-          <View style={styles.applicantInfo}>
-            {item.user?.profilePicture ? (
-              <Avatar.Image 
-                size={50} 
-                source={{ uri: item.user.profilePicture }} 
-                style={styles.avatar}
-              />
-            ) : (
-              <Avatar.Text
-                size={50}
-                label={getInitials(item.user?.firstName, item.user?.lastName)}
-                style={styles.avatar}
-              />
-            )}
-            <View>
-              <Text variant="titleMedium" style={styles.applicantName}>
-                {item.user?.firstName} {item.user?.lastName}
-              </Text>
-              <Text style={styles.applicantEmail}>{item.user?.email}</Text>
-              <Text style={styles.date}>Applied on {new Date(item.createdAt).toLocaleDateString()}</Text>
+  const formatDate = (dateString: string) => {
+    if (!dateString) return 'N/A';
+    
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        return 'N/A';
+      }
+      
+      // Format as "Month Day, Year at Time" (e.g., "May 12, 2025 at 14:47")
+      const options: Intl.DateTimeFormatOptions = {
+        year: 'numeric', 
+        month: 'short', 
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      };
+      
+      return date.toLocaleDateString(undefined, options)
+        .replace(',', ',').replace(' at', ' at'); // Ensure consistent formatting
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      // Try a different approach for PostgreSQL timestamp format
+      try {
+        // Extract date components from PostgreSQL timestamp format
+        // Example: 2025-05-12 14:47:21.09564+03
+        const matches = dateString.match(/(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})/);
+        if (matches) {
+          const [_, year, month, day, hour, minute] = matches;
+          const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+          const monthIndex = parseInt(month, 10) - 1;
+          const monthName = monthNames[monthIndex] || month;
+          return `${monthName} ${parseInt(day, 10)}, ${year} at ${hour}:${minute}`;
+        }
+      } catch (innerError) {
+        console.error('Error parsing PostgreSQL timestamp:', innerError);
+      }
+      return 'N/A';
+    }
+  };
+
+  const renderApplicantCard = ({ item }: { item: JobApplication }) => {
+    // Use the employee profile data if available
+    const hasEmployeeProfile = !!item.employeeProfile;
+    const hasUserData = item.user && (item.user.firstName || item.user.lastName || item.user.email);
+    const isProfileMissing = !hasEmployeeProfile && item.userId;
+    
+    // Generate fallback user name based on userId if no other data is available
+    const generateFallbackUserName = (userId: number) => {
+      return `Applicant #${userId}`;
+    };
+    
+    let userName: string;
+    let userEmail: string;
+    let profilePicture: string | undefined;
+    
+    if (hasEmployeeProfile) {
+      // Use data from employee profile
+      userName = `${item.employeeProfile?.firstName || ''} ${item.employeeProfile?.lastName || ''}`.trim();
+      userEmail = item.user?.email || '';
+      profilePicture = item.employeeProfile?.profilePictureUrl;
+    } else {
+      // Fallback to basic user data
+      userName = hasUserData 
+        ? `${item.user?.firstName || ''} ${item.user?.lastName || ''}`.trim() 
+        : 'Unknown Applicant';
+      userEmail = item.user?.email || 'No email provided';
+      profilePicture = item.user?.profilePicture;
+    }
+    
+    // If we still don't have a name, show a placeholder based on userId
+    if (!userName || userName.trim() === '') {
+      userName = item.userId ? generateFallbackUserName(item.userId) : 'Unknown Applicant';
+    }
+    
+    // Since createdAt might be missing from the application object,
+    // we need to handle that case
+    let applicationTimeInfo;
+    if (item.createdAt) {
+      applicationTimeInfo = `Applied: ${formatDate(item.createdAt)}`;
+    } else {
+      // Use application ID as a proxy for timing - lower IDs are generally earlier
+      applicationTimeInfo = item.id <= 1 ? 'First applicant' : `Applicant #${item.id}`;
+    }
+    
+    const hasApplicationStatus = item.applicationStatus && item.applicationStatus.trim() !== '';
+    const displayStatus = hasApplicationStatus ? item.applicationStatus : 'Pending';
+    
+    return (
+      <Card style={styles.card} mode="outlined">
+        <Card.Content>
+          <View style={styles.applicantHeader}>
+            <View style={styles.applicantInfo}>
+              {isProfileMissing && (
+                <View style={styles.warningBadge}>
+                  <MaterialCommunityIcons name="alert-circle" size={16} color="#FFF" />
+                </View>
+              )}
+              {profilePicture ? (
+                <Avatar.Image 
+                  size={50} 
+                  source={{ uri: profilePicture }} 
+                  style={styles.avatar}
+                />
+              ) : (
+                <Avatar.Text
+                  size={50}
+                  label={getInitials(item.employeeProfile?.firstName || item.user?.firstName, 
+                                  item.employeeProfile?.lastName || item.user?.lastName)}
+                  style={[styles.avatar, { backgroundColor: theme.colors.primary }]}
+                  color="#ffffff"
+                />
+              )}
+              <View>
+                <Text variant="titleMedium" style={styles.applicantName}>
+                  {userName}
+                </Text>
+                <Text style={styles.applicantEmail}>{userEmail}</Text>
+                <Text style={styles.date}>
+                  {applicationTimeInfo}
+                </Text>
+                <View style={styles.metaInfoRow}>
+                  <Text style={styles.metaInfoText}>
+                    Job: #{item.jobId} • Application: #{item.id}
+                  </Text>
+                </View>
+                {isProfileMissing && (
+                  <Text style={styles.warningText}>
+                    Employee profile not found
+                  </Text>
+                )}
+              </View>
             </View>
+            <Chip 
+              style={[styles.statusChip, { backgroundColor: getStatusColor(displayStatus) }]}
+              textStyle={{ color: '#fff' }}
+            >
+              {displayStatus}
+            </Chip>
           </View>
-          <Chip 
-            style={[styles.statusChip, { backgroundColor: getStatusColor(item.applicationStatus) }]}
-            textStyle={{ color: '#fff' }}
-          >
-            {item.applicationStatus || 'Pending'}
-          </Chip>
-        </View>
-        
-        {item.coverLetter && (
-          <View style={styles.section}>
-            <Text variant="titleSmall" style={styles.sectionTitle}>Cover Letter</Text>
-            <Text numberOfLines={3}>{item.coverLetter}</Text>
+          
+          {item.coverLetter && item.coverLetter.trim() !== '' && (
+            <View style={styles.section}>
+              <Text variant="titleSmall" style={styles.sectionTitle}>Cover Letter</Text>
+              <Text numberOfLines={3}>{item.coverLetter}</Text>
+            </View>
+          )}
+          
+          <View style={styles.buttonsContainer}>
+            <Button 
+              mode="outlined" 
+              style={styles.button}
+              onPress={() => {
+                // Navigate to applicant profile
+                if (item.userId) {
+                  navigation.navigate('ApplicantProfile', { userId: item.userId });
+                }
+              }}
+              disabled={!item.userId || isProfileMissing ? true : false}
+            >
+              View Profile
+            </Button>
+            <Button 
+              mode="contained" 
+              style={styles.button}
+              onPress={() => {
+                // Navigate to detailed application screen
+                navigation.navigate('ApplicationDetails', { applicationId: item.id });
+              }}
+            >
+              View Application
+            </Button>
           </View>
-        )}
-        
-        <View style={styles.buttonsContainer}>
-          <Button 
-            mode="outlined" 
-            style={styles.button}
-            onPress={() => {
-              // Navigate to applicant profile or resume
-              // navigation.navigate('ApplicantProfile', { applicationId: item.id });
-            }}
-          >
-            View Profile
-          </Button>
+        </Card.Content>
+      </Card>
+    );
+  };
+
+  const renderEmptyComponent = () => (
+    <View style={styles.emptyContainer}>
+      <MaterialCommunityIcons name="account-search-outline" size={80} color={theme.colors.primary} />
+      <Text variant="titleMedium" style={styles.emptyText}>
+        No applicants found
+      </Text>
+      {error ? (
+        <>
+          <Text style={styles.errorText}>{error}</Text>
           <Button 
             mode="contained" 
-            style={styles.button}
-            onPress={() => {
-              // Navigate to detailed application screen
-              // navigation.navigate('ApplicationDetails', { applicationId: item.id });
-            }}
+            onPress={() => fetchJobApplicants()} 
+            style={styles.retryButton}
           >
-            View Application
+            Retry
           </Button>
-        </View>
-      </Card.Content>
-    </Card>
+        </>
+      ) : searchQuery || statusFilter ? (
+        <Text style={styles.emptyDescription}>Try adjusting your search or filters</Text>
+      ) : (
+        <Text style={styles.emptyDescription}>When candidates apply for this job, they'll appear here</Text>
+      )}
+    </View>
   );
 
-  if (loading) {
+  // Calculate counts for the summary
+  const applicantsCount = filteredApplications.length;
+  const missingProfilesPercentage = applicantsCount > 0 
+    ? Math.round((missingProfilesCount / applicantsCount) * 100) 
+    : 0;
+
+  // Define styles here to access the theme object
+  const dynamicStyles = {
+    countChip: {
+      marginLeft: 8,
+      height: 32,
+      backgroundColor: theme.colors.primary,
+    },
+  };
+
+  if (loading && !refreshing) {
     return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
@@ -215,15 +550,57 @@ const JobApplicantsScreen = () => {
           >
             Back
           </Button>
-          <Text variant="headlineMedium" style={styles.title}>
-            Applicants
-          </Text>
+          {job && (
+            <Text variant="headlineMedium" style={styles.title}>
+              {job.title}
+            </Text>
+          )}
         </View>
         
-        {job && (
-          <Text variant="titleLarge" style={styles.jobTitle}>
-            {job.title}
-          </Text>
+        {!job && (
+          <View style={styles.loadingTitleContainer}>
+            <ActivityIndicator size="small" color={theme.colors.primary} />
+            <Text variant="titleMedium" style={styles.loadingText}>Loading job details...</Text>
+          </View>
+        )}
+
+        {/* Summary section */}
+        {applications.length > 0 && (
+          <View style={styles.summaryContainer}>
+            <View style={styles.summaryHeader}>
+              <Text variant="titleMedium" style={styles.summaryTitle}>Applicants</Text>
+              <Chip mode="flat" style={dynamicStyles.countChip}>
+                {applications.length}
+              </Chip>
+            </View>
+            
+            <View style={styles.summaryRow}>
+              <View style={styles.summaryItem}>
+                <MaterialCommunityIcons name="account-group" size={22} color={theme.colors.primary} />
+                <Text variant="bodyMedium" style={styles.summaryItemText}>
+                  {applications.length} {applications.length === 1 ? 'candidate' : 'candidates'}
+                </Text>
+              </View>
+              
+              {missingProfilesCount > 0 && (
+                <View style={styles.summaryItem}>
+                  <MaterialCommunityIcons name="alert-circle" size={22} color="#FF9800" />
+                  <Text variant="bodyMedium" style={{color: '#FF9800', marginLeft: 4}}>
+                    {missingProfilesCount} missing {missingProfilesCount === 1 ? 'profile' : 'profiles'}
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {missingProfilesCount > 0 && (
+              <View style={styles.warningContainer}>
+                <MaterialCommunityIcons name="information-outline" size={16} color="#FF9800" />
+                <Text variant="bodySmall" style={styles.warningMessage}>
+                  Some employee profiles could not be found. Basic information is still available.
+                </Text>
+              </View>
+            )}
+          </View>
         )}
         
         <Searchbar
@@ -252,33 +629,44 @@ const JobApplicantsScreen = () => {
           style={styles.chipsList}
           contentContainerStyle={styles.chipsContainer}
         />
+        
+        {fetchingUserDetails && (
+          <View style={styles.fetchingIndicatorContainer}>
+            <ActivityIndicator size="small" color={theme.colors.primary} style={styles.fetchingIndicator} />
+            <Text variant="bodySmall">Fetching applicant details...</Text>
+          </View>
+        )}
       </View>
 
       <Divider />
 
-      <FlatList
-        data={filteredApplications}
-        renderItem={renderApplicantCard}
-        keyExtractor={(item) => item.id.toString()}
-        contentContainerStyle={styles.listContainer}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Ionicons name="people-outline" size={64} color={theme.colors.primary} />
-            <Text variant="titleMedium" style={styles.emptyText}>
-              No applicants found
-            </Text>
-            {error ? (
-              <Button mode="contained" onPress={fetchJobApplicants} style={styles.retryButton}>
-                Retry
-              </Button>
-            ) : searchQuery || statusFilter ? (
-              <Text>Try adjusting your filters</Text>
-            ) : (
-              <Text>When candidates apply, they'll appear here</Text>
-            )}
-          </View>
-        }
-      />
+      {loading && !refreshing ? (
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+        </View>
+      ) : (
+        <>
+          {filteredApplications.length > 0 && (
+            <View style={styles.listHeaderContainer}>
+              <Text variant="titleSmall" style={styles.listHeaderText}>
+                {filteredApplications.length} {filteredApplications.length === 1 ? 'Application' : 'Applications'} 
+                {statusFilter ? ` - ${statusFilter}` : ''}
+                {searchQuery ? ` matching "${searchQuery}"` : ''}
+              </Text>
+            </View>
+          )}
+          <FlatList
+            data={filteredApplications}
+            renderItem={renderApplicantCard}
+            keyExtractor={(item) => item.id.toString()}
+            contentContainerStyle={styles.listContainer}
+            ListEmptyComponent={renderEmptyComponent}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.colors.primary]} />
+            }
+          />
+        </>
+      )}
     </SafeAreaView>
   );
 };
@@ -294,7 +682,7 @@ const styles = StyleSheet.create({
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   backButton: {
     marginLeft: -8,
@@ -302,48 +690,73 @@ const styles = StyleSheet.create({
   title: {
     fontWeight: 'bold',
     marginLeft: 16,
+    flex: 1,
   },
-  jobTitle: {
+  loadingTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 16,
+    justifyContent: 'center',
+  },
+  loadingText: {
+    marginLeft: 8,
+    opacity: 0.7,
   },
   searchBar: {
-    marginBottom: 12,
+    marginBottom: 16,
     backgroundColor: '#f5f5f5',
+    elevation: 0,
+    borderRadius: 8,
   },
   chipsList: {
-    marginBottom: 8,
+    marginBottom: 12,
   },
   chipsContainer: {
     paddingVertical: 4,
-    gap: 8,
+    gap: 10,
   },
   filterChip: {
     marginRight: 8,
+    borderRadius: 20,
   },
   listContainer: {
     padding: 16,
+    paddingBottom: 24,
   },
   card: {
     marginBottom: 16,
+    borderRadius: 12,
+    // Android shadow
+    elevation: 2,
+    // iOS shadow
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   applicantHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   applicantInfo: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
+    marginRight: 12,
   },
   avatar: {
     marginRight: 12,
   },
   applicantName: {
     fontWeight: 'bold',
+    marginBottom: 2,
   },
   applicantEmail: {
     opacity: 0.7,
+    fontSize: 14,
+    marginBottom: 2,
   },
   date: {
     fontSize: 12,
@@ -351,23 +764,28 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   statusChip: {
-    borderRadius: 4,
+    borderRadius: 16,
+    paddingHorizontal: 4,
   },
   section: {
-    marginVertical: 8,
+    marginVertical: 12,
+    backgroundColor: '#f9f9f9',
+    padding: 12,
+    borderRadius: 8,
   },
   sectionTitle: {
     fontWeight: 'bold',
-    marginBottom: 4,
+    marginBottom: 6,
   },
   buttonsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginTop: 16,
-    gap: 8,
+    gap: 12,
   },
   button: {
     flex: 1,
+    borderRadius: 8,
   },
   centerContainer: {
     flex: 1,
@@ -384,9 +802,110 @@ const styles = StyleSheet.create({
   emptyText: {
     marginVertical: 16,
     fontWeight: 'bold',
+    textAlign: 'center',
   },
   retryButton: {
     marginTop: 16,
+    borderRadius: 8,
+  },
+  emptyDescription: {
+    textAlign: 'center',
+    opacity: 0.7,
+    marginTop: 8,
+    paddingHorizontal: 24,
+  },
+  errorText: {
+    color: '#F44336',
+    textAlign: 'center',
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  fetchingIndicatorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 4,
+    backgroundColor: 'rgba(0,0,0,0.03)',
+    padding: 6,
+    borderRadius: 8,
+  },
+  fetchingIndicator: {
+    marginRight: 8,
+  },
+  warningBadge: {
+    position: 'absolute',
+    top: -5,
+    left: -5,
+    backgroundColor: '#FF9800',
+    borderRadius: 10,
+    width: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1,
+  },
+  warningText: {
+    color: '#FF9800',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  summaryContainer: {
+    backgroundColor: '#f8f8f8',
+    borderRadius: 8,
+    padding: 12,
+    marginVertical: 12,
+  },
+  summaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  summaryTitle: {
+    fontWeight: 'bold',
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  summaryItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 4,
+  },
+  summaryItemText: {
+    marginLeft: 4,
+  },
+  warningContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+    backgroundColor: 'rgba(255, 152, 0, 0.1)',
+    padding: 8,
+    borderRadius: 4,
+  },
+  warningMessage: {
+    color: '#FF9800',
+    marginLeft: 8,
+    flex: 1,
+    fontSize: 12,
+  },
+  metaInfoRow: {
+    marginTop: 2,
+  },
+  metaInfoText: {
+    fontSize: 11,
+    color: '#666',
+  },
+  listHeaderContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#f5f5f5',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  listHeaderText: {
+    color: '#666',
   },
 });
 

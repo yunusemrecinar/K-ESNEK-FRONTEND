@@ -25,6 +25,19 @@ export const employeeService = {
   },
 
   /**
+   * Get public employee profile data (accessible by employers)
+   * @param userId User ID
+   * @returns Employee profile data
+   */
+  getPublicEmployeeProfile: async (userId: number | string): Promise<EmployeeProfile> => {
+    const response = await apiClient.instance.get<ApiResponse<EmployeeProfile>>(
+      `/employee-profile/public/${userId}`
+    );
+    
+    return response.data.data;
+  },
+
+  /**
    * Update employee profile data
    * @param userId User ID
    * @param profile Updated profile data
