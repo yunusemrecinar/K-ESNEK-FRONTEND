@@ -6,6 +6,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { apiClient } from '../../services/api/client';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useAuth } from '../../hooks/useAuth';
 
 // Define the navigation types
 type HiringStackParamList = {
@@ -52,6 +53,7 @@ interface ApiResponse<T> {
 const HiringHomeScreen = () => {
   const theme = useTheme();
   const navigation = useNavigation<HiringNavigationProp>();
+  const { user } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -62,7 +64,22 @@ const HiringHomeScreen = () => {
       setLoading(true);
       setError(null);
       
-      const response = await apiClient.instance.get('/jobs');
+      if (!user?.id) {
+        setError('User not authenticated');
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
+      
+      console.log(`Fetching jobs for employer with ID: ${user.id}`);
+      
+      // Fetch only jobs that belong to the current employer
+      // Using query string to filter by employerId
+      const response = await apiClient.instance.get('/jobs', {
+        params: {
+          employerId: user.id
+        }
+      });
       
       // The API returns an array directly instead of an ApiResponse object
       if (Array.isArray(response.data)) {
@@ -87,9 +104,10 @@ const HiringHomeScreen = () => {
     fetchJobs();
   }, []);
 
+  // Fetch jobs when component mounts or user changes
   useEffect(() => {
     fetchJobs();
-  }, []);
+  }, [user?.id]);
 
   const handleCreateJob = () => {
     // Navigate to job creation screen
