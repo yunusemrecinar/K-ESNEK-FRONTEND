@@ -106,8 +106,8 @@ const JobDetailsScreen: React.FC = () => {
             createdAt: apiJob.createdAt,
             updatedAt: apiJob.updatedAt,
             // Map other fields from API response
-            requirements: apiJob.jobRequirements?.map((req: any) => req.description) || [],
-            responsibilities: apiJob.jobResponsibilities?.map((resp: any) => resp.description) || [],
+            requirements: apiJob.jobRequirements?.map((req: any) => req.requirement) || [],
+            responsibilities: apiJob.jobResponsibilities?.map((resp: any) => resp.responsibility) || [],
             // These fields might need to be fetched from a different endpoint or included in the job response
             companyName: apiJob.companyName || "Company Name",
             contactEmail: apiJob.contactEmail,
@@ -261,6 +261,7 @@ const JobDetailsScreen: React.FC = () => {
     );
   }
 
+  console.log("job", job);
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
