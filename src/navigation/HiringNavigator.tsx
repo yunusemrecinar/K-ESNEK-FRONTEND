@@ -12,6 +12,8 @@ import ChatScreen from '../screens/main/ChatScreen';
 import MessagesScreen from '../screens/main/MessagesScreen';
 import JobDetailsScreen from '../screens/hiring/JobDetailsScreen';
 import JobApplicantsScreen from '../screens/hiring/JobApplicantsScreen';
+// Import the working screen for now - we'll create a hiring version later
+import ApplicationDetailsScreen from '../screens/hiring/ApplicationDetailsScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -58,6 +60,7 @@ const HiringNavigator = () => {
       <Stack.Screen name="JobDetails" component={JobDetailsScreen} />
       <Stack.Screen name="JobApplicants" component={JobApplicantsScreen} />
       <Stack.Screen name="Applications" component={ApplicationsScreen} />
+      <Stack.Screen name="ApplicationDetails" component={ApplicationDetailsScreen} />
     </Stack.Navigator>
   );
 };

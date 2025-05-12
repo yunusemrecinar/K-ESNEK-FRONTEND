@@ -13,7 +13,7 @@ import { EmployeeProfile } from '../../types/profile';
 type HiringStackParamList = {
   JobApplicants: { jobId: number };
   ApplicantProfile: { userId: number };
-  ApplicationDetails: { applicationId: number };
+  ApplicationDetails: { applicationId: string };
 };
 
 type JobApplicantsRouteProp = RouteProp<HiringStackParamList, 'JobApplicants'>;
@@ -28,8 +28,8 @@ interface JobApplication {
   resumeId: number;
   answers?: string;
   notes?: string;
-  createdAt?: string;
-  updatedAt?: string;
+  createdAt: string;
+  updatedAt: string;
   user?: {
     id: number;
     firstName: string;
@@ -77,38 +77,28 @@ const JobApplicantsScreen = () => {
       
       if (response.data && response.data.success) {
         setJob(response.data.data);
-        if (response.data.data.applications) {
+        if (response.data.data.applications && response.data.data.applications.length > 0) {
           console.log('Applications received:', response.data.data.applications.length);
           
-          // Check for missing date fields and try to fetch full application data if needed
-          const apps = response.data.data.applications;
-          const needsDateFields = apps.length > 0 && (!apps[0].createdAt || !apps[0].updatedAt);
-          
-          if (needsDateFields) {
-            console.log('Applications missing date fields, attempting to fetch complete data...');
-            try {
-              // Attempt to get full application data - this is optional and will be skipped if it fails
-              await fetchApplicationDates(apps);
-            } catch (dateError) {
-              console.warn('Could not fetch complete application data:', dateError);
-              // Continue with existing data anyway
+          // Process and validate application data
+          const apps = response.data.data.applications.map((app: JobApplication) => {
+            // Ensure application has proper date fields
+            if (!app.createdAt) {
+              console.warn(`Application ${app.id} missing createdAt field`);
+              app.createdAt = new Date().toISOString();
             }
-          }
+            
+            if (!app.updatedAt) {
+              console.warn(`Application ${app.id} missing updatedAt field`);
+              app.updatedAt = app.createdAt;
+            }
+            
+            return app;
+          });
           
-          setApplications(response.data.data.applications);
+          setApplications(apps);
           // Fetch user details for each application
-          fetchUserDetailsForApplications(response.data.data.applications);
-        } else {
-          console.log('No applications found in response');
-          setApplications([]);
-        }
-      } else if (response.data) {
-        setJob(response.data);
-        if (response.data.applications) {
-          console.log('Applications received:', response.data.applications.length);
-          setApplications(response.data.applications);
-          // Fetch user details for each application
-          fetchUserDetailsForApplications(response.data.applications);
+          fetchUserDetailsForApplications(apps);
         } else {
           console.log('No applications found in response');
           setApplications([]);
@@ -228,39 +218,6 @@ const JobApplicantsScreen = () => {
     }
   };
 
-  // Optional function to attempt fetching complete application data with dates
-  const fetchApplicationDates = async (applications: JobApplication[]) => {
-    // This function would ideally call a direct applications endpoint to get complete data
-    // For now, we'll just simulate a more detailed fetch
-    
-    const enhancedApplications = [...applications];
-    
-    for (let i = 0; i < applications.length; i++) {
-      const app = applications[i];
-      
-      try {
-        // Try to get the full application
-        const appResponse = await apiClient.instance.get(`/applications/${app.id}`);
-        
-        if (appResponse.data && appResponse.data.success) {
-          // Update application with complete data including dates
-          enhancedApplications[i] = {
-            ...app,
-            ...appResponse.data.data
-          };
-        }
-      } catch (error) {
-        console.log(`Could not fetch complete data for application ${app.id}`);
-        // Continue with existing data
-      }
-    }
-    
-    // Update applications state with enhanced data
-    setApplications(enhancedApplications);
-    
-    return enhancedApplications;
-  };
-
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     fetchJobApplicants(true);
@@ -312,7 +269,7 @@ const JobApplicantsScreen = () => {
     }
   };
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString?: string) => {
     if (!dateString) return 'N/A';
     
     try {
@@ -387,14 +344,29 @@ const JobApplicantsScreen = () => {
       userName = item.userId ? generateFallbackUserName(item.userId) : 'Unknown Applicant';
     }
     
-    // Since createdAt might be missing from the application object,
-    // we need to handle that case
-    let applicationTimeInfo;
+    // Format the application date
+    let applicationDateText = 'Date not available';
+    
     if (item.createdAt) {
-      applicationTimeInfo = `Applied: ${formatDate(item.createdAt)}`;
-    } else {
-      // Use application ID as a proxy for timing - lower IDs are generally earlier
-      applicationTimeInfo = item.id <= 1 ? 'First applicant' : `Applicant #${item.id}`;
+      try {
+        // Try to create a date object from the string
+        const applicationDate = new Date(item.createdAt);
+        
+        if (!isNaN(applicationDate.getTime())) {
+          // Format as "Month Day, Year at Time" (e.g., "May 12, 2025 at 14:47")
+          const options: Intl.DateTimeFormatOptions = {
+            year: 'numeric', 
+            month: 'short', 
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          };
+          
+          applicationDateText = `Applied: ${applicationDate.toLocaleDateString(undefined, options)}`;
+        }
+      } catch (e) {
+        console.warn('Error formatting date:', e);
+      }
     }
     
     const hasApplicationStatus = item.applicationStatus && item.applicationStatus.trim() !== '';
@@ -431,7 +403,7 @@ const JobApplicantsScreen = () => {
                 </Text>
                 <Text style={styles.applicantEmail}>{userEmail}</Text>
                 <Text style={styles.date}>
-                  {applicationTimeInfo}
+                  {applicationDateText}
                 </Text>
                 <View style={styles.metaInfoRow}>
                   <Text style={styles.metaInfoText}>
@@ -479,7 +451,7 @@ const JobApplicantsScreen = () => {
               style={styles.button}
               onPress={() => {
                 // Navigate to detailed application screen
-                navigation.navigate('ApplicationDetails', { applicationId: item.id });
+                navigation.navigate('ApplicationDetails', { applicationId: item.id.toString() });
               }}
             >
               View Application
