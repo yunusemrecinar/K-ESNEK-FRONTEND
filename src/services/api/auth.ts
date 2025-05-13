@@ -1,4 +1,5 @@
 import { apiClient } from './client';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Types for our authentication responses
 export interface User {
@@ -17,12 +18,41 @@ export interface BackendUserInfo {
   name: string;
 }
 
+// Employer-specific data
+export interface EmployerData {
+  id: number;
+  userId: number;
+  name: string;
+  description: string;
+  industry: string;
+  size?: string;
+  phoneNumber?: string;
+  location?: string;
+}
+
+// Employee-specific data
+export interface EmployeeData {
+  id: number;
+  userId: number;
+  firstName: string;
+  lastName: string;
+  phoneNumber?: string;
+  location?: string;
+  dateOfBirth?: string;
+  bio?: string;
+  preferredJobTypes?: string;
+  preferredLocations?: string;
+  currentEmployerId?: number;
+}
+
 export interface LoginResponse {
   token: string;
   refreshToken?: string;
   user?: User;
   flag: boolean;
   message: string;
+  employerData?: EmployerData;
+  employeeData?: EmployeeData;
 }
 
 export interface RegisterResponse {
@@ -104,6 +134,11 @@ export const authApi = {
         };
       }
       
+      // Store employee data if available
+      if (response.data.employeeData) {
+        await AsyncStorage.setItem('employeeData', JSON.stringify(response.data.employeeData));
+      }
+      
       return response.data;
     } catch (error) {
       throw error;
@@ -138,6 +173,11 @@ export const authApi = {
           email: email,
           fullName: email.split('@')[0] || 'User',
         };
+      }
+      
+      // Store employer data if available
+      if (response.data.employerData) {
+        await AsyncStorage.setItem('employerData', JSON.stringify(response.data.employerData));
       }
       
       return response.data;

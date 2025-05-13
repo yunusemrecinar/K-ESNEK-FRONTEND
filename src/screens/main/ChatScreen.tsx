@@ -21,6 +21,8 @@ import { Message, messagingService } from '../../services/api/messagingService';
 import { apiClient } from '../../services/api/client';
 import { format } from 'date-fns';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useUserData } from '../../hooks/useUserData';
+import { useAuth } from '../../hooks/useAuth';
 
 type ChatScreenRouteProp = RouteProp<MainStackParamList, 'Chat'>;
 type NavigationProp = NativeStackNavigationProp<MainStackParamList, 'Chat'>;
@@ -37,8 +39,20 @@ const ChatScreen = () => {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<ChatScreenRouteProp>();
   const flatListRef = useRef<FlatList>(null);
+  const { isEmployee, employeeData, employerData } = useUserData();
+  const { accountType } = useAuth();
 
-  const { userId, userName, userImage } = route.params;
+  const { userId, userName, userImage, idType } = route.params;
+  
+  // Helper function to get current user ID based on account type
+  const getCurrentUserId = useCallback((): number | undefined => {
+    if (accountType === 'employee' && employeeData) {
+      return employeeData.id;
+    } else if (accountType === 'employer' && employerData) {
+      return employerData.id;
+    }
+    return undefined;
+  }, [accountType, employeeData, employerData]);
   
   // Fetch messages from API
   const fetchMessages = useCallback(async () => {
@@ -51,7 +65,16 @@ const ChatScreen = () => {
         return;
       }
       
-      const response = await messagingService.getConversation(Number(userId));
+      // Get the current user ID for conversation fetching
+      const currentUserId = getCurrentUserId();
+      
+      if (currentUserId) {
+        console.log(`Using ${accountType} ID ${currentUserId} for fetching messages with ${idType} user ${userId}`);
+      } else {
+        console.log('Warning: Could not determine current user ID, using default user ID mechanism');
+      }
+      
+      const response = await messagingService.getConversation(Number(userId), currentUserId);
       
       // Convert the grouped messages by user ID into a flat array
       const allMessages: Message[] = [];
@@ -68,6 +91,12 @@ const ChatScreen = () => {
         );
       }
       
+      // Log messages for debugging
+      console.log(`Fetched ${allMessages.length} messages`);
+      if (allMessages.length > 0) {
+        console.log(`First message: sender=${allMessages[0].senderId}, receiver=${allMessages[0].receiverId}, conversation=${allMessages[0].conversationId}`);
+      }
+      
       setMessages(allMessages);
     } catch (error) {
       console.error('Error fetching messages:', error);
@@ -77,7 +106,7 @@ const ChatScreen = () => {
       setIsLoading(false);
       setRefreshing(false);
     }
-  }, [userId]);
+  }, [userId, getCurrentUserId, accountType, idType]);
 
   // Test API connection
   const testApiConnection = useCallback(async () => {
@@ -120,32 +149,35 @@ const ChatScreen = () => {
     try {
       setIsSending(true);
       
-      // Create message payload with the actual receiverId from route params
-      const messageRequest = {
-        receiverId: Number(userId),
-        content: inputMessage.trim()
-      };
-      
-      // Get current user info for the temporary message
-      const currentUser = await AsyncStorage.getItem('user');
-      let currentUserId = -1;
+      // Get current user ID based on account type
+      const currentUserId = getCurrentUserId();
       let currentUserName = 'You';
       
-      if (currentUser) {
-        const userObj = JSON.parse(currentUser);
-        currentUserId = userObj.id || -1;
-        currentUserName = userObj.email || 'You';
+      // Get user name from local storage
+      const userDataString = await AsyncStorage.getItem('userData');
+      if (userDataString) {
+        const userData = JSON.parse(userDataString);
+        currentUserName = userData.email || 'You';
       }
+      
+      console.log(`Sending message as ${accountType} (ID: ${currentUserId}) to ${idType || 'unknown'} (ID: ${userId})`);
+      
+      // Create message payload with the correct IDs
+      const messageRequest = {
+        receiverId: Number(userId),
+        content: inputMessage.trim(),
+        ...(currentUserId !== undefined && { senderId: currentUserId })
+      };
       
       // Add the message locally first for immediate feedback
       const tempMessage: Message = {
         id: Date.now(), // Temporary ID that will be overwritten
         content: inputMessage.trim(),
-        senderId: currentUserId,
+        senderId: currentUserId || -1,
         senderName: currentUserName,
         receiverId: Number(userId),
         receiverName: userName,
-        conversationId: `${currentUserId}-${userId}`, // Temporary conversationId
+        conversationId: currentUserId ? `${Math.min(currentUserId, Number(userId))}-${Math.max(currentUserId, Number(userId))}` : '',
         isRead: false,
         createdAt: new Date().toISOString()
       };
@@ -188,9 +220,11 @@ const ChatScreen = () => {
 
   // Render a message
   const renderMessage = ({ item }: { item: Message }) => {
-    // Determine if current user is the sender
-    // In the new API structure, if senderId matches the userId from route params, it's the other user
-    const isCurrentUser = item.senderId.toString() !== userId;
+    // Determine if current user is the sender based on account type
+    const currentUserId = getCurrentUserId();
+    
+    console.log(`Message sender: ${item.senderId}, current user ID: ${currentUserId}`);
+    const isCurrentUser = currentUserId !== null && item.senderId === currentUserId;
 
     return (
       <View style={[

@@ -4,7 +4,9 @@ import {
   LoginResponse, 
   User,
   RegisterEmployeeRequest,
-  RegisterEmployerRequest
+  RegisterEmployerRequest,
+  EmployeeData,
+  EmployerData
 } from '../services/api/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { initializeApiClient } from '../services/api/client';
@@ -19,6 +21,8 @@ interface AuthContextType {
   token: string | null;
   isLoading: boolean;
   accountType: AccountType | null;
+  employeeData: EmployeeData | null;
+  employerData: EmployerData | null;
   login: (email: string, password: string, accountType: AccountType) => Promise<boolean>;
   registerEmployee: (data: RegisterEmployeeRequest) => Promise<boolean>;
   registerEmployer: (data: RegisterEmployerRequest) => Promise<boolean>;
@@ -33,6 +37,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [accountType, setAccountType] = useState<AccountType | null>(null);
+  const [employeeData, setEmployeeData] = useState<EmployeeData | null>(null);
+  const [employerData, setEmployerData] = useState<EmployerData | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const login = useCallback(async (email: string, password: string, type: AccountType): Promise<boolean> => {
@@ -62,8 +68,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await AsyncStorage.setItem('user', JSON.stringify(response.user));
       await AsyncStorage.setItem('accountType', type);
       
-      // Sync saved jobs with backend after successful login
-      if (type === 'employee') {
+      // Handle employee-specific data
+      if (type === 'employee' && response.employeeData) {
+        setEmployeeData(response.employeeData);
+        await AsyncStorage.setItem('employeeData', JSON.stringify(response.employeeData));
+        
         try {
           console.log('Syncing saved jobs after login for user:', response.user.id);
           await savedJobsApi.syncWithBackend();
@@ -71,6 +80,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.error('Error syncing saved jobs after login:', syncError);
           // Continue even if sync fails - user will still be logged in
         }
+      }
+      
+      // Handle employer-specific data
+      if (type === 'employer' && response.employerData) {
+        setEmployerData(response.employerData);
+        await AsyncStorage.setItem('employerData', JSON.stringify(response.employerData));
       }
       
       return true;
@@ -172,6 +187,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await AsyncStorage.removeItem('refreshToken');
       await AsyncStorage.removeItem('user');
       await AsyncStorage.removeItem('accountType');
+      await AsyncStorage.removeItem('employeeData');
+      await AsyncStorage.removeItem('employerData');
       
       // Clear saved jobs for the user
       await clearSavedJobsStorage();
@@ -183,6 +200,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(null);
       setToken(null);
       setAccountType(null);
+      setEmployeeData(null);
+      setEmployerData(null);
       setError(null);
     } catch (error) {
       console.error('Error during logout:', error);
@@ -194,10 +213,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const loadStoredData = async () => {
       try {
-        const [storedUser, storedToken, storedAccountType] = await Promise.all([
+        const [storedUser, storedToken, storedAccountType, storedEmployeeData, storedEmployerData] = await Promise.all([
           AsyncStorage.getItem('user'),
           AsyncStorage.getItem('token'),
           AsyncStorage.getItem('accountType'),
+          AsyncStorage.getItem('employeeData'),
+          AsyncStorage.getItem('employerData'),
         ]);
 
         if (storedUser && storedToken && storedAccountType) {
@@ -205,13 +226,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setToken(storedToken);
           setAccountType(storedAccountType as AccountType);
           
-          // Sync saved jobs with backend on app start if user is logged in as employee
-          if (storedAccountType === 'employee') {
+          // Load specific data based on account type
+          if (storedAccountType === 'employee' && storedEmployeeData) {
+            setEmployeeData(JSON.parse(storedEmployeeData));
+            
             try {
               await savedJobsApi.syncWithBackend();
             } catch (syncError) {
               console.error('Error syncing saved jobs on app start:', syncError);
             }
+          }
+          
+          if (storedAccountType === 'employer' && storedEmployerData) {
+            setEmployerData(JSON.parse(storedEmployerData));
           }
         }
       } catch (error) {
@@ -238,6 +265,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       token, 
       isLoading, 
       accountType,
+      employeeData,
+      employerData,
       login, 
       registerEmployee,
       registerEmployer,

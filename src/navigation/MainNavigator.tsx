@@ -6,7 +6,12 @@ import WorkingNavigator from './WorkingNavigator';
 
 export type MainStackParamList = {
   Category: { categoryId: string; title: string };
-  Chat: { userId: string; userName: string; userImage: string };
+  Chat: { 
+    userId: string; 
+    userName: string; 
+    userImage: string;
+    idType?: 'employee' | 'employer';  // Type of the user ID (employee or employer)
+  };
   Applications: undefined;
   AllCategories: undefined;
   JobDetails: { jobId: number };

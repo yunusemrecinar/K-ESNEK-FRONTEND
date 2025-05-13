@@ -15,6 +15,10 @@ import { MainStackParamList } from '../../navigation/MainNavigator';
 import { ConversationSummary, messagingService } from '../../services/api/messagingService';
 import { format, isToday, isYesterday } from 'date-fns';
 import { useAuth } from '../../hooks/useAuth';
+import { useUserData } from '../../hooks/useUserData';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { employeeService } from '../../services/api/employee';
+import { employerService } from '../../services/api/employer';
 
 type NavigationProp = NativeStackNavigationProp<MainStackParamList>;
 
@@ -22,11 +26,11 @@ const formatMessageDate = (dateString: string) => {
   const date = new Date(dateString);
   
   if (isToday(date)) {
-    return format(date, 'p'); // Shows time like "3:43 PM"
+    return format(date, 'h:mm a');
   } else if (isYesterday(date)) {
     return 'Yesterday';
   } else {
-    return format(date, 'MMM d'); // Shows date like "Apr 3"
+    return format(date, 'MM/dd/yyyy');
   }
 };
 
@@ -36,58 +40,145 @@ const MessagesScreen = () => {
   const [filteredConversations, setFilteredConversations] = useState<ConversationSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [displayNames, setDisplayNames] = useState<Record<number, string>>({});
   const navigation = useNavigation<NavigationProp>();
   const { accountType, user } = useAuth();
+  const { employeeData, employerData } = useUserData();
 
   // Log user information for debugging
   useEffect(() => {
     console.log('Current user:', user ? `ID: ${user.id}, Email: ${user.email}` : 'Not logged in');
     console.log('Account type:', accountType);
-  }, [user, accountType]);
+    console.log('Employee data:', employeeData);
+    console.log('Employer data:', employerData);
+  }, [user, accountType, employeeData, employerData]);
+
+  // Function to get proper display name for an employee
+  const getEmployeeDisplayName = async (employeeId: number) => {
+    try {
+      // Try to get public profile data
+      const profile = await employeeService.getPublicEmployeeProfile(employeeId);
+      console.log("profileEmployee", profile, employeeId);
+      return `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || 'Employee User';
+    } catch (error) {
+      console.error(`Error fetching employee data for ID ${employeeId}:`, error);
+      return null;
+    }
+  };
+
+  // Function to get proper display name for an employer
+  const getEmployerDisplayName = async (employerId: number) => {
+    try {
+      // Try to get employer profile data
+      const profile = await employerService.getEmployerProfile(employerId);
+      console.log("profileEmployer", profile, employerId);
+      return profile.name || profile.email || 'Employer User';
+    } catch (error) {
+      console.error(`Error fetching employer data for ID ${employerId}:`, error);
+      return null;
+    }
+  };
+
+  // Fetch display names for users
+  const fetchDisplayNames = async (conversationList: ConversationSummary[]) => {
+    const names: Record<number, string> = {};
+    
+    // Process each conversation to get proper names
+    for (const conversation of conversationList) {
+      // Determine if the other user is an employee or employer based on the current user type
+      const isOtherUserEmployee = accountType === 'employer';
+      
+      try {
+        if (isOtherUserEmployee) {
+          // If the current user is an employer, the other user is an employee
+          const name = await getEmployeeDisplayName(conversation.otherUserId);
+          if (name) names[conversation.otherUserId] = name;
+        } else {
+          // If the current user is an employee, the other user is an employer
+          const name = await getEmployerDisplayName(conversation.otherUserId);
+          if (name) names[conversation.otherUserId] = name;
+        }
+      } catch (err) {
+        console.error('Error fetching display name:', err);
+      }
+    }
+    
+    setDisplayNames(names);
+  };
 
   const fetchConversations = async () => {
     try {
       setIsLoading(true);
+      console.log('=============== MESSAGES SCREEN DEBUG ===============');
       console.log(`Fetching conversations as ${accountType} account`);
       
-      let response;
+      // Determine the correct user ID based on account type
+      let userId = null;
       
-      // Use different service methods based on account type
-      if (accountType === 'employer') {
-        // For employers, we need to get all messages across conversations
-        console.log('Using employer message fetch method');
-        response = await messagingService.getAllEmployerMessages();
-      } else {
-        // For employees, use the existing conversations endpoint
-        console.log('Using employee conversation fetch method');
-        response = await messagingService.getConversations();
+      if (accountType === 'employee' && employeeData) {
+        userId = employeeData.id;
+        console.log(`Using employee ID: ${userId} (employeeData.id)`);
+        console.log('EMPLOYEE DATA:', JSON.stringify(employeeData, null, 2));
+      } else if (accountType === 'employer' && employerData) {
+        userId = employerData.id;
+        console.log(`Using employer ID: ${userId} (employerData.id)`);
+        console.log('EMPLOYER DATA:', JSON.stringify(employerData, null, 2));
+      } else if (user) {
+        userId = parseInt(user.id);
+        console.log(`Using fallback user ID: ${userId} (user.id)`);
+        console.log('USER DATA:', JSON.stringify(user, null, 2));
       }
       
+      if (!userId) {
+        console.error('No valid user ID found for fetching conversations');
+        setIsLoading(false);
+        return;
+      }
+      
+      console.log('Before API call - userId that will be used:', userId);
+      
+      // Use the messaging service to get conversations
+      const response = await messagingService.getAllUserMessages();
+      console.log("Full API response:", JSON.stringify(response, null, 2));
       console.log(`Fetched ${response.conversations?.length || 0} conversations`);
+      
+      // Log all fetched conversations for debugging
+      response.conversations?.forEach((conv, index) => {
+        console.log(`Conversation ${index}: ID=${conv.conversationId}, otherUser=${conv.otherUserName} (${conv.otherUserId})`);
+      });
       
       // Filter out conversations where the current user is both sender and receiver
       let filteredResponse = response.conversations || [];
       
-      if (user && user.id) {
-        const currentUserId = user.id;
-        console.log(`Filtering out conversations where current user ID (${currentUserId}) appears as both sender and receiver`);
+      if (userId) {
+        console.log(`Filtering with current user ID: ${userId}`);
         
         // Filter out conversations where otherUserId matches the current user's ID
         filteredResponse = filteredResponse.filter(conversation => {
-          // Convert both IDs to strings for comparison to avoid type mismatch
-          const isCurrentUser = conversation.otherUserId.toString() === currentUserId.toString();
+          const isCurrentUser = conversation.otherUserId === userId;
           if (isCurrentUser) {
-            console.log(`Filtered out conversation with self (ID: ${currentUserId})`);
+            console.log(`Filtered out conversation with self (ID: ${userId})`);
           }
           return !isCurrentUser;
         });
       }
       
       console.log(`Conversations after filtering: ${filteredResponse.length}`);
+      if (filteredResponse.length > 0) {
+        console.log('First filtered conversation:', JSON.stringify(filteredResponse[0], null, 2));
+      } else {
+        console.log('No conversations after filtering');
+      }
+      console.log('=============== END MESSAGES SCREEN DEBUG ===============');
+      
       setConversations(filteredResponse);
       setFilteredConversations(filteredResponse);
+      
+      // Fetch proper names for the other users
+      fetchDisplayNames(filteredResponse);
     } catch (error) {
       console.error('Error fetching conversations:', error);
+      console.log('=============== END MESSAGES SCREEN DEBUG WITH ERROR ===============');
     } finally {
       setIsLoading(false);
       setRefreshing(false);
@@ -104,11 +195,12 @@ const MessagesScreen = () => {
     } else {
       const filtered = conversations.filter(conversation => 
         conversation.otherUserName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (displayNames[conversation.otherUserId] || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
         conversation.lastMessageContent.toLowerCase().includes(searchQuery.toLowerCase())
       );
       setFilteredConversations(filtered);
     }
-  }, [searchQuery, conversations]);
+  }, [searchQuery, conversations, displayNames]);
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -117,20 +209,31 @@ const MessagesScreen = () => {
 
   const renderItem = ({ item }: { item: ConversationSummary }) => {
     // Create a consistent avatar URL
+    console.log("item", item);
     const avatarUrl = `https://i.pravatar.cc/150?u=${item.otherUserId}`;
   
     console.log(`Rendering conversation with ${item.otherUserName} (ID: ${item.otherUserId})`);
-  
+    
+    // Parse the conversation ID to get the correct IDs
+    const [id1, id2] = item.conversationId.split('-').map(Number);
+    
+    // Determine if the current user is an employer or employee
+    const isEmployer = accountType === 'employer';
+    
+    // Create a navigation parameter object with the correct context
+    const chatParams = {
+      userId: item.otherUserId.toString(),
+      userName: displayNames[item.otherUserId] || item.otherUserName,
+      userImage: avatarUrl,
+      idType: isEmployer ? 'employee' as const : 'employer' as const
+    };
+    
     return (
       <TouchableOpacity
         style={styles.messageItem}
         onPress={() => {
           console.log(`Navigating to chat with user ${item.otherUserName} (ID: ${item.otherUserId})`);
-          navigation.navigate('Chat', { 
-            userId: item.otherUserId.toString(),
-            userName: item.otherUserName,
-            userImage: avatarUrl
-          });
+          navigation.navigate('Chat', chatParams);
         }}
       >
         <View style={styles.avatarContainer}>
@@ -143,7 +246,7 @@ const MessagesScreen = () => {
         <View style={styles.messageContent}>
           <View style={styles.messageHeader}>
             <Text variant="titleMedium" style={styles.userName}>
-              {item.otherUserName}
+              {displayNames[item.otherUserId] || item.otherUserName}
             </Text>
             <Text variant="bodySmall" style={styles.timestamp}>
               {formatMessageDate(item.lastMessageDate)}
