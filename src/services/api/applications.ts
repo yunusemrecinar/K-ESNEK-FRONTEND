@@ -64,7 +64,7 @@ export const applicationsApi = {
    */
   getUserApplications: async (): Promise<ApiResponse<JobApplication[]>> => {
     try {
-      const response = await apiClient.instance.get('/applications');
+      const response = await apiClient.instance.get('/applications/my');
       
       if (response.data && response.data.success) {
         return {

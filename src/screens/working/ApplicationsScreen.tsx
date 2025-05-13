@@ -173,30 +173,50 @@ const ApplicationsScreen = () => {
         setApplications(enhancedApplications);
       } else {
         console.error('Failed to fetch applications:', response.message);
-        setError('Failed to load applications. Please try again.');
+        let errorMessage = 'Failed to load applications. Please try again.';
+        
+        // Check if it's an authorization issue
+        if (response.message && response.message.includes('403')) {
+          errorMessage = 'You are not authorized to view applications. Please log in again.';
+          // Optionally, you could trigger a logout here or redirect to login
+        }
+        
+        setError(errorMessage);
         setSnackbarVisible(true);
         
-        // Use mock data as fallback
-        const mockApplications: Application[] = [
-          {
-            id: 1,
-            jobId: 1,
-            applicationStatus: 'Pending',
-            jobTitle: 'Software Developer',
-            companyName: 'Tech Corp',
-            location: 'Istanbul, Turkey',
-            salary: '$50,000 - $70,000',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          },
-          // Add more mock data as needed
-        ];
-        setApplications(mockApplications);
+        // Use mock data as fallback for development only
+        if (__DEV__) {
+          console.log('Using mock data for development');
+          const mockApplications: Application[] = [
+            {
+              id: 1,
+              jobId: 1,
+              applicationStatus: 'Pending',
+              jobTitle: 'Software Developer',
+              companyName: 'Tech Corp',
+              location: 'Istanbul, Turkey',
+              salary: '$50,000 - $70,000',
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+            },
+            // Add more mock data as needed
+          ];
+          setApplications(mockApplications);
+        }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching applications:', error);
-      setError('Error loading applications. Please try again.');
+      let errorMessage = 'Error loading applications. Please try again.';
+      
+      // Handle auth errors
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        errorMessage = 'Authentication error. Please log in again.';
+        // Optionally, you could trigger a logout here or redirect to login
+      }
+      
+      setError(errorMessage);
       setSnackbarVisible(true);
+      
       // Fallback to empty applications list
       setApplications([]);
     } finally {
