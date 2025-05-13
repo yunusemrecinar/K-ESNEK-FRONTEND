@@ -162,8 +162,8 @@ const JobApplicationModal: React.FC<JobApplicationModalProps> = ({
               </Text>
               <TextInput
                 mode="outlined"
-                value={coverLetter}
-                onChangeText={setCoverLetter}
+                defaultValue={coverLetter}
+                onChangeText={(text) => setCoverLetter(text)}
                 multiline
                 numberOfLines={6}
                 placeholder="Tell the employer why you're a good fit for this position..."
