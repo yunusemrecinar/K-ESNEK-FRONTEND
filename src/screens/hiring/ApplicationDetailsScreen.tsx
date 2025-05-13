@@ -14,6 +14,7 @@ type RootStackParamList = {
   ApplicationDetails: { applicationId: string };
   JobApplicants: { jobId: number };
   ApplicantProfile: { userId: number };
+  Chat: { userId: string; userName: string; userImage: string };
 };
 
 type ApplicationDetailsRouteProp = RouteProp<RootStackParamList, 'ApplicationDetails'>;
@@ -221,10 +222,26 @@ const ApplicationDetailsScreen = () => {
     try {
       setStatusUpdating(true);
       
-      // API call to update status
-      const response = await apiClient.instance.patch(`/applications/${application.id}`, {
-        applicationStatus: newStatus
-      });
+      // Make sure we have a valid resumeId (must be > 0)
+      const resumeId = application.resumeId && application.resumeId > 0 ? application.resumeId : 1;
+      
+      // Log what we're sending
+      console.log(`Updating application ${application.id} status to "${newStatus}" with resumeId: ${resumeId}`);
+      
+      // Create complete request data with all required fields
+      const requestData = {
+        id: application.id,
+        applicationStatus: newStatus,
+        jobId: application.jobId,
+        userId: application.userId,
+        resumeId: resumeId, // Always provide a positive number
+        coverLetter: application.coverLetter || '',
+        answers: application.answers || '',
+        notes: application.notes || ''
+      };
+      
+      // Standard PATCH request
+      const response = await apiClient.instance.patch(`/applications/${application.id}`, requestData);
       
       if (response.data && response.data.success) {
         // Update local state
@@ -234,8 +251,13 @@ const ApplicationDetailsScreen = () => {
       } else {
         throw new Error(response.data?.message || 'Failed to update application status');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating application status:', error);
+      // Log more details about the error
+      if (error.response) {
+        console.error('Error status:', error.response.status);
+        console.error('Error data:', error.response.data ? JSON.stringify(error.response.data, null, 2) : 'No response data');
+      }
       setSnackbarVisible(true);
       setError('Failed to update application status. Please try again.');
     } finally {
@@ -243,14 +265,31 @@ const ApplicationDetailsScreen = () => {
     }
   };
 
-  // Contact applicant (via email)
-  const contactApplicant = (email: string) => {
-    if (email) {
-      Linking.openURL(`mailto:${email}`);
-    } else {
+  // Contact applicant (via chat)
+  const contactApplicant = () => {
+    if (!application || !application.userId) {
       setSnackbarVisible(true);
-      setError('No email address available for this applicant.');
+      setError('Could not find applicant information.');
+      return;
     }
+    
+    // Navigate to the chat screen with the applicant's information
+    const applicantName = application.user 
+      ? `${application.user.firstName} ${application.user.lastName}`.trim() 
+      : application.employeeProfile 
+        ? `${application.employeeProfile.firstName} ${application.employeeProfile.lastName}`.trim()
+        : 'Applicant';
+    
+    // Get profile picture or use a default
+    const profilePicture = application.user?.profilePicture 
+      || application.employeeProfile?.profilePictureUrl 
+      || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(applicantName);
+    
+    navigation.navigate('Chat', {
+      userId: application.userId.toString(),
+      userName: applicantName,
+      userImage: profilePicture
+    });
   };
 
   // View resume
@@ -264,7 +303,7 @@ const ApplicationDetailsScreen = () => {
     try {
       // Construct proper URL for resume download
       // Use the ngrok URL or API URL from the config
-      const apiUrl = 'https://22eb-31-142-79-237.ngrok-free.app/api';
+      const apiUrl = 'https://e027-176-233-28-176.ngrok-free.app/api';
       const fileUrl = `/files/download/${application.resumeId}`;
       Linking.openURL(`${apiUrl}${fileUrl}`);
     } catch (error) {
@@ -404,8 +443,8 @@ const ApplicationDetailsScreen = () => {
             <View style={styles.actionButtonsContainer}>
               <Button 
                 mode="contained" 
-                icon="email" 
-                onPress={() => contactApplicant(applicantEmail)}
+                icon="chat" 
+                onPress={() => contactApplicant()}
                 style={[styles.actionButton, styles.contactButton]}
               >
                 Contact Applicant

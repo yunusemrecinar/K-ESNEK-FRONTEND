@@ -162,7 +162,7 @@ export const fileService = {
    */
   getFileUrl: (fileId: number): string => {
     // Use ngrok URL instead of localhost for direct file access
-    const ngrokBaseUrl = 'https://22eb-31-142-79-237.ngrok-free.app';
+    const ngrokBaseUrl = 'https://e027-176-233-28-176.ngrok-free.app';
     return `${ngrokBaseUrl}/api/files/download/${fileId}`;
   }
 }; 
