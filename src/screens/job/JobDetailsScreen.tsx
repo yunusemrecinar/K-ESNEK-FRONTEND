@@ -261,7 +261,6 @@ const JobDetailsScreen: React.FC = () => {
     );
   }
 
-  console.log("job", job);
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>

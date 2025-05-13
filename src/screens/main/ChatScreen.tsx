@@ -68,12 +68,6 @@ const ChatScreen = () => {
       // Get the current user ID for conversation fetching
       const currentUserId = getCurrentUserId();
       
-      if (currentUserId) {
-        console.log(`Using ${accountType} ID ${currentUserId} for fetching messages with ${idType} user ${userId}`);
-      } else {
-        console.log('Warning: Could not determine current user ID, using default user ID mechanism');
-      }
-      
       const response = await messagingService.getConversation(Number(userId), currentUserId);
       
       // Convert the grouped messages by user ID into a flat array
@@ -89,12 +83,6 @@ const ChatScreen = () => {
         allMessages.sort((a, b) => 
           new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
         );
-      }
-      
-      // Log messages for debugging
-      console.log(`Fetched ${allMessages.length} messages`);
-      if (allMessages.length > 0) {
-        console.log(`First message: sender=${allMessages[0].senderId}, receiver=${allMessages[0].receiverId}, conversation=${allMessages[0].conversationId}`);
       }
       
       setMessages(allMessages);
@@ -160,8 +148,6 @@ const ChatScreen = () => {
         currentUserName = userData.email || 'You';
       }
       
-      console.log(`Sending message as ${accountType} (ID: ${currentUserId}) to ${idType || 'unknown'} (ID: ${userId})`);
-      
       // Create message payload with the correct IDs
       const messageRequest = {
         receiverId: Number(userId),
@@ -223,7 +209,6 @@ const ChatScreen = () => {
     // Determine if current user is the sender based on account type
     const currentUserId = getCurrentUserId();
     
-    console.log(`Message sender: ${item.senderId}, current user ID: ${currentUserId}`);
     const isCurrentUser = currentUserId !== null && item.senderId === currentUserId;
 
     return (

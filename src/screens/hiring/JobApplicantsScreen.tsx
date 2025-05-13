@@ -78,7 +78,6 @@ const JobApplicantsScreen = () => {
       if (response.data && response.data.success) {
         setJob(response.data.data);
         if (response.data.data.applications && response.data.data.applications.length > 0) {
-          console.log('Applications received:', response.data.data.applications.length);
           
           // Process and validate application data
           const apps = response.data.data.applications.map((app: JobApplication) => {
@@ -100,7 +99,6 @@ const JobApplicantsScreen = () => {
           // Fetch user details for each application
           fetchUserDetailsForApplications(apps);
         } else {
-          console.log('No applications found in response');
           setApplications([]);
         }
       } else {
@@ -162,7 +160,6 @@ const JobApplicantsScreen = () => {
               
               // Check if it's an authentication error
               if (error.response && (error.response.status === 401 || error.response.status === 403)) {
-                console.log('Authentication error when fetching employee profile');
                 authError = true;
                 // Return from this promise to handle auth error after all promises
                 return;
@@ -170,7 +167,6 @@ const JobApplicantsScreen = () => {
               
               // Handle 404 Not Found errors
               if (error.response && error.response.status === 404) {
-                console.log(`Employee profile not found for user ${app.userId}`);
                 notFoundCount++;
                 
                 // Create basic profile with userId information only

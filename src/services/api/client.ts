@@ -55,7 +55,6 @@ axiosInstance.interceptors.request.use(
     // Debug log for request URLs in development
     if (__DEV__) {
       const fullUrl = `${config.baseURL}${config.url}`;
-      console.log(`🌐 API Request to: ${config.method?.toUpperCase()} ${fullUrl}`);
     }
     
     return config;

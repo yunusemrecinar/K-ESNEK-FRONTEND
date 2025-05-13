@@ -61,8 +61,6 @@ const HiringProfileScreen = () => {
       setIsLoading(true);
       const profileData = await employerService.getEmployerProfile(userId);
       
-      console.log('Fetched employer profile data:', profileData);
-      
       // Transform the API data to match our local profile structure
       setProfile({
         name: profileData.name || 'Company Name',
@@ -93,15 +91,12 @@ const HiringProfileScreen = () => {
       // Set profile picture URL if available
       if (profileData.profilePictureUrl) {
         const accessibleUrl = makeUrlAccessible(profileData.profilePictureUrl);
-        console.log('Setting profile picture URL:', accessibleUrl);
         setProfilePicture(accessibleUrl);
       } else if (profileData.profilePictureId) {
         // If we have an ID but no URL, construct the URL directly
         const directUrl = `https://e027-176-233-28-176.ngrok-free.app/api/files/download/${profileData.profilePictureId}`;
-        console.log('Constructing profile picture URL from ID:', directUrl);
         setProfilePicture(directUrl);
       } else {
-        console.log('No profile picture URL or ID available');
         setProfilePicture(null);
       }
       
@@ -313,14 +308,12 @@ const HiringProfileScreen = () => {
                       // Retry with fresh URL after error
                       if (profile?.profilePictureId) {
                         const freshUrl = `https://e027-176-233-28-176.ngrok-free.app/api/files/download/${profile.profilePictureId}`;
-                        console.log('Retrying with URL:', freshUrl);
                         setProfilePicture(freshUrl);
                       } else if (profilePicture?.includes('/api/files/download/')) {
                         // Try to extract ID from the URL and retry with fresh URL
                         const idMatch = profilePicture.match(/\/api\/files\/download\/(\d+)/);
                         if (idMatch && idMatch[1]) {
                           const freshUrl = `https://e027-176-233-28-176.ngrok-free.app/api/files/download/${idMatch[1]}`;
-                          console.log('Retrying with extracted ID URL:', freshUrl);
                           setProfilePicture(freshUrl);
                         }
                       }

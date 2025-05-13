@@ -71,8 +71,6 @@ const HiringHomeScreen = () => {
         return;
       }
       
-      console.log(`Fetching jobs for employer with ID: ${user.id}`);
-      
       // Fetch only jobs that belong to the current employer
       // Using query string to filter by employerId
       const response = await apiClient.instance.get('/jobs', {

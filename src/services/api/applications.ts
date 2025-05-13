@@ -144,15 +144,9 @@ export const applicationsApi = {
         };
       }
       
-      console.log('Starting resume upload and job application process');
-      console.log('User ID:', userId);
-      console.log('Job ID:', jobId);
-      console.log('Cover letter length:', coverLetter?.length || 0);
-      
       try {
         // Upload the resume file using the numeric user ID
         const resumeId = await fileService.uploadEmployeeCV(userId, resumeFile);
-        console.log('Resume uploaded successfully, ID:', resumeId);
         
         // Then apply with the resume ID
         return applicationsApi.applyForJob({

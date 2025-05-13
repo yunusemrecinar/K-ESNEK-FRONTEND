@@ -145,8 +145,6 @@ const ApplicationsScreen = () => {
       const response = await applicationsApi.getUserApplications();
       
       if (response.isSuccess && response.data) {
-        console.log('Fetched applications:', response.data);
-        
         // Map the API response to our Application interface
         const formattedApplications: Application[] = response.data.map(app => ({
           id: app.id,
@@ -186,7 +184,6 @@ const ApplicationsScreen = () => {
         
         // Use mock data as fallback for development only
         if (__DEV__) {
-          console.log('Using mock data for development');
           const mockApplications: Application[] = [
             {
               id: 1,

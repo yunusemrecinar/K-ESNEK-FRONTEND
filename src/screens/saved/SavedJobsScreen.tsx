@@ -43,16 +43,12 @@ const SavedJobsScreen = () => {
   const syncWithBackend = useCallback(async () => {
     try {
       setSyncing(true);
-      console.log('Starting sync with backend');
       const success = await savedJobsApi.syncWithBackend();
       if (success) {
-        console.log('Sync successful, fetching updated saved jobs');
         const jobs = await savedJobsApi.getAllSavedJobs();
-        console.log(`Retrieved ${jobs.length} saved jobs`);
         setSavedJobs(jobs);
         showSnackbar('Synchronized saved jobs with the cloud');
       } else {
-        console.log('Sync returned unsuccessful');
         showSnackbar('Failed to sync with the cloud');
       }
     } catch (error) {
@@ -67,7 +63,6 @@ const SavedJobsScreen = () => {
   useFocusEffect(
     useCallback(() => {
       const fetchData = async () => {
-        console.log('SavedJobsScreen came into focus');
         await loadSavedJobs();
         // Sync with backend after loading local data
         syncWithBackend();

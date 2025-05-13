@@ -80,20 +80,12 @@ const ApplicationDetailsScreen = () => {
         const now = new Date().toISOString();
         
         if (!applicationData.createdAt) {
-          console.log('Adding missing createdAt field to application data');
           applicationData.createdAt = now;
         }
         
         if (!applicationData.updatedAt) {
-          console.log('Adding missing updatedAt field to application data');
           applicationData.updatedAt = applicationData.createdAt || now;
         }
-        
-        console.log('Application with dates:', JSON.stringify({
-          id: applicationData.id,
-          createdAt: applicationData.createdAt,
-          updatedAt: applicationData.updatedAt
-        }, null, 2));
         
         setApplication(applicationData);
         
@@ -225,9 +217,6 @@ const ApplicationDetailsScreen = () => {
       // Make sure we have a valid resumeId (must be > 0)
       const resumeId = application.resumeId && application.resumeId > 0 ? application.resumeId : 1;
       
-      // Log what we're sending
-      console.log(`Updating application ${application.id} status to "${newStatus}" with resumeId: ${resumeId}`);
-      
       // Create complete request data with all required fields
       const requestData = {
         id: application.id,
@@ -331,14 +320,6 @@ const ApplicationDetailsScreen = () => {
       </View>
     );
   }
-
-  console.log('Application:', application);
-  console.log('Application dates:', {
-    createdAt: application.createdAt,
-    updatedAt: application.updatedAt,
-    formattedCreatedAt: formatDate(application.createdAt),
-    formattedUpdatedAt: formatDate(application.updatedAt)
-  });
 
   const applicantName = application.user 
     ? `${application.user.firstName} ${application.user.lastName}`.trim() 

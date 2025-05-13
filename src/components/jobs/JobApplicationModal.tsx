@@ -65,13 +65,6 @@ const JobApplicationModal: React.FC<JobApplicationModalProps> = ({
       // Create FormData for file upload
       const formData = new FormData();
       
-      // Log file details for debugging
-      console.log('Selected file:', {
-        name: resumeFile.name,
-        type: resumeFile.mimeType,
-        uri: resumeFile.uri.substring(0, 50) + '...' // Truncate for log
-      });
-      
       // Append file to FormData using the exact property name 'File' expected by the backend
       // The property name must exactly match the C# model property (case-sensitive)
       formData.append('File', {

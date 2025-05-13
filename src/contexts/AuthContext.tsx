@@ -74,7 +74,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await AsyncStorage.setItem('employeeData', JSON.stringify(response.employeeData));
         
         try {
-          console.log('Syncing saved jobs after login for user:', response.user.id);
           await savedJobsApi.syncWithBackend();
         } catch (syncError) {
           console.error('Error syncing saved jobs after login:', syncError);
@@ -101,9 +100,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
     setError(null);
     try {
-      console.log('Calling registerEmployee API with data:', JSON.stringify(data));
       const response = await authApi.registerEmployee(data);
-      console.log('registerEmployee API response:', JSON.stringify(response));
       
       if (!response.flag) {
         setError(response.message || 'Registration failed');

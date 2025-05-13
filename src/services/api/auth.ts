@@ -209,13 +209,6 @@ export const authApi = {
         StartDate: data.startDate ?? new Date().toISOString().split('T')[0] // Default to today
       };
 
-      console.log('Registering employee with payload:', JSON.stringify(payload));
-      
-      // Log the request details for debugging
-      console.log('Request URL:', '/identity/employee/register');
-      console.log('Request method:', 'POST');
-      console.log('Request headers:', apiClient.instance.defaults.headers);
-      
       const response = await apiClient.instance.post<RegisterResponse>('/identity/employee/register', payload);
       
       if (response.data.token) {
@@ -251,13 +244,6 @@ export const authApi = {
         SmsNotifications: data.smsNotifications ?? false
       };
 
-      console.log('Registering employer with payload:', JSON.stringify(payload));
-      
-      // Log the request details for debugging
-      console.log('Request URL:', '/identity/employer/register');
-      console.log('Request method:', 'POST');
-      console.log('Request headers:', apiClient.instance.defaults.headers);
-      
       const response = await apiClient.instance.post<RegisterResponse>('/identity/employer/register', payload);
       
       if (response.data.token) {

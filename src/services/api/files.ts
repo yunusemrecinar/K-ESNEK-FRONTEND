@@ -18,9 +18,7 @@ export const fileService = {
    */
   uploadEmployeeProfilePicture: async (userId: number | string, formData: FormData): Promise<number> => {
     try {
-      console.log(`📤 Uploading profile picture for user ${userId}`);
       const endpoint = `/employee-profile/upload/profile-picture/${userId}`;
-      console.log(`🔗 Endpoint: ${endpoint}`);
       
       const response = await apiClient.instance.post<FileUploadResponse>(
         endpoint,
@@ -32,7 +30,6 @@ export const fileService = {
         }
       );
       
-      console.log(`✅ Upload success, File ID: ${response.data.data}`);
       return response.data.data;
     } catch (error) {
       console.error('❌ Profile picture upload failed:', error);
@@ -48,9 +45,7 @@ export const fileService = {
    */
   uploadEmployeeBackgroundPicture: async (userId: number | string, formData: FormData): Promise<number> => {
     try {
-      console.log(`📤 Uploading background picture for user ${userId}`);
       const endpoint = `/employee-profile/upload/background-picture/${userId}`;
-      console.log(`🔗 Endpoint: ${endpoint}`);
       
       const response = await apiClient.instance.post<FileUploadResponse>(
         endpoint,
@@ -62,7 +57,6 @@ export const fileService = {
         }
       );
       
-      console.log(`✅ Upload success, File ID: ${response.data.data}`);
       return response.data.data;
     } catch (error) {
       console.error('❌ Background picture upload failed:', error);
@@ -78,12 +72,9 @@ export const fileService = {
    */
   uploadEmployeeCV: async (userId: number | string, formData: FormData): Promise<number> => {
     try {
-      console.log(`📤 Uploading CV for user ID: ${userId}`);
-      
       // Use the direct files upload endpoint instead of the employee-profile endpoint
       // This avoids validation issues with the user ID
       const endpoint = `/files/upload`;
-      console.log(`🔗 Using endpoint: ${endpoint}`);
       
       // Log form data contents (debugging)
       if (__DEV__) {
@@ -92,7 +83,6 @@ export const fileService = {
           const valueInfo = typeof value === 'object' ? 
             `${value.name}, type: ${value.type}, size: ${value.size || 'unknown'}` : 
             value;
-          console.log(`📋 FormData - ${key}: ${valueInfo}`);
         }
       }
       
@@ -106,7 +96,6 @@ export const fileService = {
         }
       );
       
-      console.log(`✅ Upload success, File ID: ${response.data.data}`);
       return response.data.data;
     } catch (error: any) {
       console.error('❌ CV upload failed:', error);

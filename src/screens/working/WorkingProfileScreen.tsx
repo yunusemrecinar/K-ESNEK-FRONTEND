@@ -121,8 +121,6 @@ const ProfileScreen = () => {
       setIsLoading(true);
       const profileData = await employeeService.getEmployeeProfile(userId);
       
-      console.log('Fetched profile data:', profileData);
-      
       // If services data is provided as JSON string, parse it
       if (profileData.services && typeof profileData.services === 'string') {
         try {
@@ -150,20 +148,16 @@ const ProfileScreen = () => {
       // Set profile picture URL if available
       if (profileData.profilePictureUrl) {
         const accessibleUrl = makeUrlAccessible(profileData.profilePictureUrl);
-        console.log('Setting profile picture URL:', accessibleUrl);
         setProfilePicture(accessibleUrl);
       } else {
-        console.log('No profile picture URL available');
         setProfilePicture(null);
       }
       
       // Set background picture URL if available
       if (profileData.backgroundPictureUrl) {
         const accessibleUrl = makeUrlAccessible(profileData.backgroundPictureUrl);
-        console.log('Setting background picture URL:', accessibleUrl);
         setBackgroundPicture(accessibleUrl);
       } else {
-        console.log('No background picture URL available');
         setBackgroundPicture(null);
       }
       
@@ -245,21 +239,12 @@ const ProfileScreen = () => {
         return;
       }
       
-      console.log(`Processing upload for user ID: ${userId} (type: ${typeof userId})`);
-      
       const imageFile = await selectAndProcessImage(asset);
       
       if (!imageFile) {
         setIsUploading(false);
         return;
       }
-      
-      console.log('Image file prepared for upload:', {
-        uri: imageFile.uri,
-        name: imageFile.name,
-        type: imageFile.type,
-        size: imageFile.size
-      });
       
       // Create a FormData object
       const formData = new FormData();
@@ -275,23 +260,19 @@ const ProfileScreen = () => {
       // Handle different upload types
       try {
         if (uploadType === 'profile') {
-          console.log(`Uploading profile picture for user ${userId}`);
           // Ensure userId is a number
           const userIdNum = parseInt(userId);
           if (isNaN(userIdNum)) {
             throw new Error(`Invalid userId format: ${userId}`);
           }
           fileId = await fileService.uploadEmployeeProfilePicture(userIdNum, formData);
-          console.log('Profile picture uploaded successfully, fileId:', fileId);
         } else {
-          console.log(`Uploading background picture for user ${userId}`);
           // Ensure userId is a number
           const userIdNum = parseInt(userId);
           if (isNaN(userIdNum)) {
             throw new Error(`Invalid userId format: ${userId}`);
           }
           fileId = await fileService.uploadEmployeeBackgroundPicture(userIdNum, formData);
-          console.log('Background picture uploaded successfully, fileId:', fileId);
         }
         
         // Short delay before fetching updated profile data
@@ -305,11 +286,9 @@ const ProfileScreen = () => {
         // Make sure the image is displayed even if fetchProfileData didn't update it
         if (uploadType === 'profile' && fileId) {
           const directUrl = fileService.getFileUrl(fileId);
-          console.log('Setting profile picture directly:', directUrl);
           setProfilePicture(directUrl);
         } else if (fileId) {
           const directUrl = fileService.getFileUrl(fileId);
-          console.log('Setting background picture directly:', directUrl);
           setBackgroundPicture(directUrl);
         }
       } catch (uploadError: any) {
@@ -351,11 +330,6 @@ const ProfileScreen = () => {
         setIsUploading(true);
         
         const asset = result.assets[0];
-        console.log('CV file selected:', {
-          uri: asset.uri,
-          name: asset.name,
-          type: asset.mimeType
-        });
         
         // Create a FormData object
         const formData = new FormData();
@@ -367,7 +341,6 @@ const ProfileScreen = () => {
         } as any);
         
         try {
-          console.log(`Uploading CV for user ${userId}`);
           // Ensure userId is a number
           const userIdNum = parseInt(userId);
           if (isNaN(userIdNum)) {
@@ -375,7 +348,6 @@ const ProfileScreen = () => {
           }
           // Upload the CV
           const fileId = await fileService.uploadEmployeeCV(userIdNum, formData);
-          console.log('CV uploaded successfully, fileId:', fileId);
           
           // Short delay before fetching updated profile data
           await new Promise(resolve => setTimeout(resolve, 500));
@@ -657,7 +629,6 @@ const ProfileScreen = () => {
                   // Retry with fresh URL after error
                   if (profile?.backgroundPictureId) {
                     const freshUrl = fileService.getFileUrl(profile.backgroundPictureId);
-                    console.log('Retrying background image with direct URL:', freshUrl);
                     setBackgroundPicture(freshUrl);
                   }
                 }}
@@ -703,7 +674,6 @@ const ProfileScreen = () => {
                       // Retry with fresh URL after error
                       if (profile?.profilePictureId) {
                         const freshUrl = fileService.getFileUrl(profile.profilePictureId);
-                        console.log('Retrying profile image with direct URL:', freshUrl);
                         setProfilePicture(freshUrl);
                       }
                     }}
