@@ -42,11 +42,17 @@ export const employeeService = {
    * @returns Array of employee profile data
    */
   getAllEmployees: async (): Promise<EmployeeProfile[]> => {
-    const response = await apiClient.instance.get<ApiResponse<EmployeeProfile[]>>(
-      '/employee-profile/all'
-    );
-    
-    return response.data.data || [];
+    try {
+      const response = await apiClient.instance.get<EmployeeProfile[]>(
+        '/identity/employees'
+      );
+      
+      // The identity/employees endpoint returns a direct array rather than an ApiResponse wrapper
+      return response.data || [];
+    } catch (error) {
+      console.error('Error fetching all employees:', error);
+      throw error;
+    }
   },
 
   /**

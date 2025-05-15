@@ -83,8 +83,10 @@ export const recommendationsApi = {
 
   // Get recommended users for employer
   getRecommendedUsersForEmployer: async (employerId: number): Promise<ApiResponse<UserRecommendationDto[]>> => {
+    console.log('Fetching recommended users for employer:', employerId);
     try {
       const response = await apiClient.instance.get(`/recommendations/users/for-employer/${employerId}`);
+      console.log('Response:', response.data);
       
       // Map backend response format to frontend expected format
       if (response.data && typeof response.data.success === 'boolean') {

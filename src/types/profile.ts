@@ -23,6 +23,9 @@ export interface EmployeeService {
  * Employee profile data interface
  */
 export interface EmployeeProfile extends UserProfile {
+  // Identity field (sometimes returned from backend instead of userId)
+  id?: number;
+  
   // User stats summary
   totalProjects: number;
   totalReviews: number;
