@@ -84,12 +84,45 @@ export const jobsApi = {
     try {
       const response = await apiClient.instance.get('/jobs');
       
+      // Handle the specific error case shown in the screenshot
+      // Where the API returns a string that starts with "[{"employerId":..."
+      if (typeof response.data === 'string' && response.data.startsWith('[{')) {
+        try {
+          const parsedData = JSON.parse(response.data);
+          if (Array.isArray(parsedData)) {
+            return {
+              data: parsedData,
+              message: 'Warning: API returned stringified JSON but it was parsed',
+              isSuccess: true
+            };
+          }
+        } catch (parseError) {
+          console.error('Failed to parse stringified JSON:', parseError);
+        }
+      }
+      
       // Map backend response format to frontend expected format
       if (response.data && typeof response.data.success === 'boolean') {
+        const jobsData = response.data.data || [];
         return {
-          data: response.data.data || [],
+          data: jobsData,
           message: response.data.message || '',
           isSuccess: response.data.success
+        };
+      } else if (Array.isArray(response.data)) {
+        // Handle case where response is a direct array of jobs (no wrapper object)
+        return {
+          data: response.data,
+          message: 'Success',
+          isSuccess: true
+        };
+      } else if (response.data && typeof response.data === 'object' && 'employerId' in response.data) {
+        // Handle case where response is a single job object instead of an array
+        // This is to handle the error case seen in the screenshot
+        return {
+          data: [response.data],
+          message: 'Warning: API returned malformed data but it was converted',
+          isSuccess: true
         };
       } else {
         console.error('Unexpected API response format:', response.data);
