@@ -97,15 +97,11 @@ const JobDetailsScreen = () => {
 
   const handleEditJob = () => {
     if (job) {
-      // Navigate to PostJob tab with job data for editing
-      // This is a bottom tab, so use the navigation.navigate with params
-      navigation.navigate('HiringTabs', {
-        screen: 'PostJob',
-        params: {
-          jobId: job.id,
-          isEditing: true,
-          jobData: job
-        }
+      // Navigate to PostJob screen with job data for editing
+      navigation.navigate('PostJob', {
+        jobId: job.id,
+        isEditing: true,
+        jobData: job
       });
     }
   };

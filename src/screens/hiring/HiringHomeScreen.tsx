@@ -14,6 +14,7 @@ type HiringStackParamList = {
   JobDetails: { jobId: number };
   JobApplicants: { jobId: number };
   Applications: undefined;
+  PostJob: undefined;
 };
 
 type HiringNavigationProp = NativeStackNavigationProp<HiringStackParamList>;
@@ -109,7 +110,7 @@ const HiringHomeScreen = () => {
 
   const handleCreateJob = () => {
     // Navigate to job creation screen
-    // navigation.navigate('CreateJob');
+    navigation.navigate('PostJob');
   };
 
   const handleViewJobDetails = (jobId: number) => {

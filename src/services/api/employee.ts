@@ -38,6 +38,18 @@ export const employeeService = {
   },
 
   /**
+   * Get all employees (for employer search)
+   * @returns Array of employee profile data
+   */
+  getAllEmployees: async (): Promise<EmployeeProfile[]> => {
+    const response = await apiClient.instance.get<ApiResponse<EmployeeProfile[]>>(
+      '/employee-profile/all'
+    );
+    
+    return response.data.data || [];
+  },
+
+  /**
    * Update employee profile data
    * @param userId User ID
    * @param profile Updated profile data

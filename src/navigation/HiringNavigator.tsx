@@ -12,6 +12,8 @@ import ChatScreen from '../screens/main/ChatScreen';
 import MessagesScreen from '../screens/main/MessagesScreen';
 import JobDetailsScreen from '../screens/hiring/JobDetailsScreen';
 import JobApplicantsScreen from '../screens/hiring/JobApplicantsScreen';
+// Import the new search employees screen
+import SearchEmployeeScreen from '../screens/hiring/SearchEmployeeScreen';
 // Import the working screen for now - we'll create a hiring version later
 import ApplicationDetailsScreen from '../screens/hiring/ApplicationDetailsScreen';
 
@@ -28,8 +30,8 @@ const HiringTabNavigator = () => {
 
           if (route.name === 'Home') {
             iconName = focused ? 'home' : 'home-outline';
-          } else if (route.name === 'PostJob') {
-            iconName = focused ? 'add-circle' : 'add-circle-outline';
+          } else if (route.name === 'Search') {
+            iconName = focused ? 'search' : 'search-outline';
           } else if (route.name === 'Messages') {
             iconName = focused ? 'chatbubbles' : 'chatbubbles-outline';
           } else if (route.name === 'Profile') {
@@ -41,7 +43,7 @@ const HiringTabNavigator = () => {
       })}
     >
       <Tab.Screen name="Home" component={HiringHomeScreen} />
-      <Tab.Screen name="PostJob" component={PostJobScreen} />
+      <Tab.Screen name="Search" component={SearchEmployeeScreen} />
       <Tab.Screen name="Messages" component={MessagesScreen} />
       <Tab.Screen name="Profile" component={HiringProfileScreen} />
     </Tab.Navigator>
@@ -61,6 +63,7 @@ const HiringNavigator = () => {
       <Stack.Screen name="JobApplicants" component={JobApplicantsScreen} />
       <Stack.Screen name="Applications" component={ApplicationsScreen} />
       <Stack.Screen name="ApplicationDetails" component={ApplicationDetailsScreen} />
+      <Stack.Screen name="PostJob" component={PostJobScreen} />
     </Stack.Navigator>
   );
 };
