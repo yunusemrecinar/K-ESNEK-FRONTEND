@@ -1,5 +1,6 @@
 import { apiClient } from './client';
 import { fileService } from './files';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export interface CreateApplicationRequest {
   jobId: number;
@@ -227,6 +228,105 @@ export const applicationsApi = {
       // Assume user has not applied in case of error
       return {
         data: false,
+        isSuccess: false,
+        message: error.response?.data?.message || (error instanceof Error ? error.message : 'Unknown error occurred')
+      };
+    }
+  },
+
+  /**
+   * Get all applications for the employer's jobs
+   * @returns Promise with applications list
+   */
+  getEmployerApplications: async (): Promise<ApiResponse<JobApplication[]>> => {
+    try {
+      // Get employer ID from AsyncStorage
+      const employerDataStr = await AsyncStorage.getItem('employerData');
+      let employerId = null;
+      
+      if (employerDataStr) {
+        try {
+          const employerData = JSON.parse(employerDataStr);
+          employerId = employerData.id;
+        } catch (parseError) {
+          console.error('Error parsing employer data from AsyncStorage:', parseError);
+        }
+      }
+      
+      if (!employerId) {
+        return {
+          data: [],
+          isSuccess: false,
+          message: 'No employer ID found in AsyncStorage'
+        };
+      }
+
+      // First get all jobs for this employer
+      const jobsResponse = await apiClient.instance.get('/jobs', {
+        params: { employerId: employerId }
+      });
+      
+      // Parse jobs response
+      let employerJobs: any[] = [];
+      if (Array.isArray(jobsResponse.data)) {
+        employerJobs = jobsResponse.data;
+      } else if (jobsResponse.data && jobsResponse.data.success && Array.isArray(jobsResponse.data.data)) {
+        employerJobs = jobsResponse.data.data;
+      }
+      
+      // If no jobs found, return empty array
+      if (employerJobs.length === 0) {
+        return {
+          data: [],
+          isSuccess: true,
+          message: 'No jobs found for this employer'
+        };
+      }
+      
+      // Create a set of job IDs for quick lookup
+      const employerJobIds = new Set(employerJobs.map(job => job.id));
+      
+      // Create a map of job titles by job id for quick lookup
+      const jobTitlesById: Record<number, string> = {};
+      employerJobs.forEach(job => {
+        jobTitlesById[job.id] = job.title;
+      });
+      
+      // Now fetch all applications
+      const response = await apiClient.instance.get('/applications');
+      
+      // Handle the response format
+      if (response.data && response.data.success) {
+        // Extract applications from response
+        const allApplications = response.data.data || [];
+        
+        // Filter applications to only include those for the employer's jobs
+        const employerApplications = allApplications.filter((app: any) => 
+          employerJobIds.has(app.jobId)
+        );
+        
+        // Add job title to each application
+        const enhancedApplications = employerApplications.map((app: any) => ({
+          ...app,
+          jobTitle: jobTitlesById[app.jobId] || `Job #${app.jobId}`
+        }));
+        
+        return {
+          data: enhancedApplications,
+          isSuccess: true,
+          message: 'Applications retrieved successfully'
+        };
+      } else {
+        return {
+          data: [],
+          isSuccess: false,
+          message: response.data?.message || 'Failed to get applications'
+        };
+      }
+    } catch (error: any) {
+      console.error('Error getting employer applications:', error);
+      return {
+        data: [],
         isSuccess: false,
         message: error.response?.data?.message || (error instanceof Error ? error.message : 'Unknown error occurred')
       };
