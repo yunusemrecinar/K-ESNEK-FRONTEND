@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal, FlatList, Image } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal, FlatList, Image, Linking } from 'react-native';
 import { Text, Avatar, Button, Card, useTheme, TextInput, Switch } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -35,6 +35,8 @@ const HiringProfileScreen = () => {
   const [profilePicture, setProfilePicture] = useState<string | null>(null);
   const [uploadType, setUploadType] = useState<'profile'>('profile');
   
+  console.log("Current user in AuthContext:", user);
+  
   // Store the profile data
   const [profile, setProfile] = useState<CompanyProfile>({
     name: 'Acme Corporation',
@@ -60,6 +62,8 @@ const HiringProfileScreen = () => {
     try {
       setIsLoading(true);
       const profileData = await employerService.getEmployerProfile(userId);
+      console.log("profileData", profileData, "userId", userId); 
+      console.log("Website from API:", profileData.website);
       
       // Transform the API data to match our local profile structure
       setProfile({
@@ -69,12 +73,14 @@ const HiringProfileScreen = () => {
         location: profileData.location || '',
         industry: profileData.industry || '',
         size: profileData.size || '',
-        email: profileData.email || '',
+        email: profileData.email || user?.email || '', // Fallback to user email if profile email is null
         phone: profileData.phoneNumber || '',
         notificationsEnabled: true, // Default value since this might not be part of the API
         profilePictureId: profileData.profilePictureId,
         profilePictureUrl: profileData.profilePictureUrl
       });
+
+      console.log("Local profile after setting:", profile.website);
       
       // Helper function to ensure URLs are accessible from mobile
       const makeUrlAccessible = (url: string | null | undefined): string | null => {
@@ -100,8 +106,12 @@ const HiringProfileScreen = () => {
         setProfilePicture(null);
       }
       
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching profile:", error);
+      if (error.response) {
+        console.error("Error response data:", JSON.stringify(error.response.data));
+        console.error("Error response status:", error.response.status);
+      }
       Alert.alert('Error', 'Failed to load profile data');
     } finally {
       setIsLoading(false);
@@ -114,33 +124,52 @@ const HiringProfileScreen = () => {
       return;
     }
     
+    // Validate required fields
+    if (!profile.name || !profile.description || !profile.industry || !profile.size) {
+      Alert.alert('Missing Information', 'Please fill in all required company information fields.');
+      return;
+    }
+    
     try {
       // Transform local profile structure to API structure
       const apiProfile = {
         EmployerId: parseInt(userId),
-        firstName: user?.fullName?.split(' ')[0] || 'First',
-        lastName: user?.fullName?.split(' ')[1] || 'Last',
-        phoneNumber: profile.phone,
-        location: profile.location,
-        name: profile.name,
-        description: profile.description,
-        industry: profile.industry,
-        size: profile.size,
-        website: profile.website,
-        email: profile.email,
+        FirstName: user?.fullName?.split(' ')[0] || 'First',
+        LastName: user?.fullName?.split(' ')[1] || 'Last',
+        PhoneNumber: profile.phone,
+        Location: profile.location,
+        Name: profile.name,
+        Description: profile.description,
+        Industry: profile.industry,
+        Size: profile.size,
+        Website: profile.website,
+        // Email is not included as users shouldn't be able to change it
       };
       
+      console.log('Saving profile with data:', JSON.stringify(apiProfile));
+      console.log('Website being sent to API:', profile.website);
+      
       // Save profile changes to the backend
-      await employerService.updateEmployerProfile(userId, apiProfile);
+      const updatedProfile = await employerService.updateEmployerProfile(userId, apiProfile);
+      console.log('Profile update response:', JSON.stringify(updatedProfile));
       
       // Refresh profile data to ensure we have the latest
       await fetchProfileData();
       
       setIsEditing(false);
       Alert.alert('Success', 'Profile updated successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error updating profile:", error);
-      Alert.alert('Error', 'Failed to update profile');
+      if (error.response) {
+        console.error("Error response data:", JSON.stringify(error.response.data));
+        console.error("Error response status:", error.response.status);
+        console.error("Error response headers:", JSON.stringify(error.response.headers));
+      } else if (error.request) {
+        console.error("Error request:", JSON.stringify(error.request));
+      } else {
+        console.error("Error message:", error.message);
+      }
+      Alert.alert('Error', `Failed to update profile: ${error.message || 'Unknown error'}`);
     }
   };
   
@@ -394,6 +423,7 @@ const HiringProfileScreen = () => {
                     onChangeText={(text) => setProfile({ ...profile, website: text })}
                     style={styles.input}
                     mode="outlined"
+                    placeholder="www.yourcompany.com"
                   />
                   <TextInput
                     label="Industry"
@@ -417,7 +447,36 @@ const HiringProfileScreen = () => {
                   <Text style={styles.description}>{profile.description}</Text>
                   <View style={styles.infoRow}>
                     <Ionicons name="globe-outline" size={20} color="#666" />
-                    <Text style={styles.infoText}>{profile.website}</Text>
+                    <TouchableOpacity 
+                      onPress={() => {
+                        if (profile.website) {
+                          // Add https:// if not present
+                          let url = profile.website;
+                          if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                            url = 'https://' + url;
+                          }
+                          Linking.canOpenURL(url)
+                            .then(supported => {
+                              if (supported) {
+                                return Linking.openURL(url);
+                              }
+                              Alert.alert('Error', 'Cannot open this URL');
+                            })
+                            .catch(err => {
+                              console.error('Error opening URL:', err);
+                              Alert.alert('Error', 'Cannot open this URL');
+                            });
+                        }
+                      }}
+                      disabled={!profile.website}
+                    >
+                      <Text style={[
+                        styles.infoText, 
+                        profile.website ? styles.linkText : null
+                      ]}>
+                        {profile.website || 'No website provided'}
+                      </Text>
+                    </TouchableOpacity>
                   </View>
                   <View style={styles.infoRow}>
                     <Ionicons name="business-outline" size={20} color="#666" />
@@ -444,9 +503,10 @@ const HiringProfileScreen = () => {
                   <TextInput
                     label="Email"
                     value={profile.email}
-                    onChangeText={(text) => setProfile({ ...profile, email: text })}
                     style={styles.input}
                     mode="outlined"
+                    disabled={true}
+                    right={<TextInput.Icon icon="lock" />}
                   />
                   <TextInput
                     label="Phone"
@@ -631,6 +691,10 @@ const styles = StyleSheet.create({
   thumbnailImage: {
     flex: 1,
     borderRadius: 4,
+  },
+  linkText: {
+    color: '#2196F3',
+    textDecorationLine: 'underline',
   },
 });
 

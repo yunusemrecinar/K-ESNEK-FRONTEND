@@ -152,8 +152,6 @@ const ApplicationsScreen = () => {
           return;
         }
         
-        console.log("response.data", response.data);
-        
         // Sort applications by date (newest first)
         const sortedApps = response.data.sort((a, b) => 
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()

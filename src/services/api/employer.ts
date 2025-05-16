@@ -2,6 +2,21 @@ import { apiClient } from './client';
 import { ApiResponse } from '../../config/api.types';
 import { EmployerProfile } from '../../types/profile';
 
+// Define the command structure that matches backend expectations
+interface UpdateEmployerProfileCommand {
+  EmployerId: number;
+  FirstName?: string;
+  LastName?: string;
+  PhoneNumber?: string;
+  Location?: string;
+  Name?: string;
+  Description?: string;
+  Industry?: string;
+  Size?: string;
+  Website?: string;
+  // Email is not included as it's not updatable by users
+}
+
 /**
  * Employer API service for fetching and managing employer data
  */
@@ -25,7 +40,7 @@ export const employerService = {
    * @param profile Updated profile data
    * @returns Updated employer profile
    */
-  updateEmployerProfile: async (userId: number | string, profile: Partial<EmployerProfile>): Promise<EmployerProfile> => {
+  updateEmployerProfile: async (userId: number | string, profile: UpdateEmployerProfileCommand): Promise<EmployerProfile> => {
     const response = await apiClient.instance.put<ApiResponse<EmployerProfile>>(
       `/employer-profile/${userId}`,
       profile
