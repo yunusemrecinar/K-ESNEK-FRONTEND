@@ -139,7 +139,7 @@ const ProfileScreen = () => {
         
         // Replace localhost URLs with ngrok URL
         if (url.includes('localhost') || url.includes('127.0.0.1')) {
-          return url.replace(/(http|https):\/\/(localhost|127\.0\.0\.1)(:\d+)?/, 'https://a9d6-176-233-28-176.ngrok-free.app');
+          return url.replace(/(http|https):\/\/(localhost|127\.0\.0\.1)(:\d+)?/, 'https://8cc1-176-233-28-47.ngrok-free.app');
         }
         
         return url;
