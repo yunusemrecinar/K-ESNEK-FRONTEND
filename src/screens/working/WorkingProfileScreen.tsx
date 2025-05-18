@@ -24,6 +24,10 @@ import { employeeService } from '../../services/api/employee';
 import { apiClient } from '../../services/api/client';
 import { AuthContext } from '../../contexts/AuthContext';
 import { EmployeeProfile, EmployeeService } from '../../types/profile';
+import { useAuth } from '../../hooks/useAuth';
+import { CommonActions } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { CompositeScreenParamList } from '../../types/navigation';
 
 const { width } = Dimensions.get('window');
 
@@ -39,8 +43,13 @@ interface Service {
   icon: keyof typeof IconType.glyphMap;
 }
 
-const ProfileScreen = () => {
+type Props = {
+  navigation: NativeStackNavigationProp<CompositeScreenParamList>;
+};
+
+const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   const { user } = useContext(AuthContext);
+  const { logout } = useAuth();
   const [showAllReviews, setShowAllReviews] = useState(false);
   const [profilePicture, setProfilePicture] = useState<string | null>(null);
   const [backgroundPicture, setBackgroundPicture] = useState<string | null>(null);
@@ -609,6 +618,22 @@ const ProfileScreen = () => {
     );
   };
 
+  const handleLogout = async () => {
+    try {
+      await logout();
+      // Navigate to Auth stack
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{ name: 'Auth' }],
+        })
+      );
+    } catch (error) {
+      console.error('Logout error:', error);
+      Alert.alert('Error', 'Failed to logout. Please try again.');
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -738,6 +763,13 @@ const ProfileScreen = () => {
               size={24}
               style={styles.shareButton}
               onPress={() => {/* Handle share */}}
+            />
+            <IconButton
+              icon="logout"
+              mode="outlined"
+              size={24}
+              style={styles.logoutButton}
+              onPress={handleLogout}
             />
           </View>
 
@@ -1084,6 +1116,10 @@ const styles = StyleSheet.create({
   },
   shareButton: {
     borderColor: '#6C63FF',
+  },
+  logoutButton: {
+    borderColor: '#F44336',
+    marginLeft: 8,
   },
   statsContainer: {
     flexDirection: 'row',

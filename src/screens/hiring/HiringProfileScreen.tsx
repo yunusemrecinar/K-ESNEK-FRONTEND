@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal, FlatList, Image, Linking } from 'react-native';
-import { Text, Avatar, Button, Card, useTheme, TextInput, Switch } from 'react-native-paper';
+import { Text, Avatar, Button, Card, useTheme, TextInput, Switch, IconButton } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as MediaLibrary from 'expo-media-library';
@@ -9,6 +9,10 @@ import { fileService } from '../../services/api/files';
 import { employerService } from '../../services/api/employer';
 import { AuthContext } from '../../contexts/AuthContext';
 import { EmployerProfile } from '../../types/profile';
+import { useAuth } from '../../hooks/useAuth';
+import { CommonActions } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { CompositeScreenParamList } from '../../types/navigation';
 
 interface CompanyProfile {
   name: string;
@@ -24,9 +28,14 @@ interface CompanyProfile {
   profilePictureUrl?: string;
 }
 
-const HiringProfileScreen = () => {
+type Props = {
+  navigation: NativeStackNavigationProp<CompositeScreenParamList>;
+};
+
+const HiringProfileScreen: React.FC<Props> = ({ navigation }) => {
   const theme = useTheme();
   const { user } = useContext(AuthContext);
+  const { logout } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
@@ -307,9 +316,34 @@ const HiringProfileScreen = () => {
     { label: 'Hired', value: '8' },
   ];
 
+  const handleLogout = async () => {
+    try {
+      await logout();
+      // Navigate to Auth stack
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{ name: 'Auth' }],
+        })
+      );
+    } catch (error) {
+      console.error('Logout error:', error);
+      Alert.alert('Error', 'Failed to logout. Please try again.');
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       {renderImagePickerModal()}
+      <View style={styles.topHeader}>
+        <View style={{ flex: 1 }} />
+        <TouchableOpacity
+          style={styles.logoutButton}
+          onPress={handleLogout}
+        >
+          <Ionicons name="log-out" size={24} color="#F44336" />
+        </TouchableOpacity>
+      </View>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <View style={styles.avatarContainer}>
@@ -587,6 +621,13 @@ const styles = StyleSheet.create({
     position: 'relative',
     marginBottom: 16,
   },
+  headerButtons: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
+    flexDirection: 'row',
+    gap: 8,
+  },
   editButton: {
     position: 'absolute',
     right: 0,
@@ -594,6 +635,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 15,
     padding: 8,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  logoutButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: '#fff',
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -695,6 +746,16 @@ const styles = StyleSheet.create({
   linkText: {
     color: '#2196F3',
     textDecorationLine: 'underline',
+  },
+  topHeader: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
   },
 });
 
