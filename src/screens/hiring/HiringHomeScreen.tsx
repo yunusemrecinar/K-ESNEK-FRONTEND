@@ -7,6 +7,7 @@ import { apiClient } from '../../services/api/client';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../hooks/useAuth';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Define the navigation types
 type HiringStackParamList = {
@@ -51,6 +52,12 @@ interface ApiResponse<T> {
   errorCode?: string;
 }
 
+// Define employer data interface
+interface EmployerData {
+  id: number;
+  // Add other employer properties as needed
+}
+
 const HiringHomeScreen = () => {
   const theme = useTheme();
   const navigation = useNavigation<HiringNavigationProp>();
@@ -64,9 +71,22 @@ const HiringHomeScreen = () => {
     try {
       setLoading(true);
       setError(null);
+
+      // Get employer data from AsyncStorage
+      const employerDataString = await AsyncStorage.getItem('employerData');
       
-      if (!user?.id) {
-        setError('User not authenticated');
+      if (!employerDataString) {
+        setError('Employer data not found');
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
+
+      // Parse the employer data
+      const employerData: EmployerData = JSON.parse(employerDataString);
+      
+      if (!employerData.id) {
+        setError('Employer ID not found');
         setLoading(false);
         setRefreshing(false);
         return;
@@ -76,7 +96,7 @@ const HiringHomeScreen = () => {
       // Using query string to filter by employerId
       const response = await apiClient.instance.get('/jobs', {
         params: {
-          employerId: user.id
+          employerId: employerData.id
         }
       });
       
@@ -103,10 +123,10 @@ const HiringHomeScreen = () => {
     fetchJobs();
   }, []);
 
-  // Fetch jobs when component mounts or user changes
+  // Fetch jobs when component mounts
   useEffect(() => {
     fetchJobs();
-  }, [user?.id]);
+  }, []);
 
   const handleCreateJob = () => {
     // Navigate to job creation screen
