@@ -50,6 +50,8 @@ export interface CreateMessageRequest {
   receiverId: number;
   content: string;
   senderId?: number; // Optional senderId to override the ID from the token
+  sender?: string; // Type of the sender (EmployerUser or EmployeeUser)
+  receiver?: string; // Type of the receiver (EmployerUser or EmployeeUser)
 }
 
 export interface MessagesByUser {
@@ -89,8 +91,23 @@ class MessagingService {
       if (request.senderId) {
         headers['X-Employee-Id'] = request.senderId.toString();
       }
+      const employerDataString = await AsyncStorage.getItem('employerData');
+      const employeeDataString = await AsyncStorage.getItem('employeeData');
+      console.log("employerDataString", employerDataString);
+      console.log("employeeDataString", employeeDataString);
       
-      const response = await apiClient.instance.post('/messages', request, { headers });
+      // Add sender and receiver types based on user data
+      const messageRequest = { ...request };
+      if (employerDataString && JSON.parse(employerDataString).id === request.senderId) {
+        messageRequest.sender = 'EmployerUser';
+        messageRequest.receiver = 'EmployeeUser';
+      } else if (employeeDataString && JSON.parse(employeeDataString).id === request.senderId) {
+        messageRequest.sender = 'EmployeeUser';
+        messageRequest.receiver = 'EmployerUser';
+      }
+      
+      console.log("request", messageRequest);
+      const response = await apiClient.instance.post('/messages', messageRequest, { headers });
       return response.data.data; // Access the data inside the ApiResponse wrapper
     } catch (error: any) {
       console.error('Error sending message:', error);

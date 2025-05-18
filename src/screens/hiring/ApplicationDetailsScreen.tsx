@@ -292,7 +292,7 @@ const ApplicationDetailsScreen = () => {
     try {
       // Construct proper URL for resume download
       // Use the ngrok URL or API URL from the config
-      const apiUrl = 'https://8cc1-176-233-28-47.ngrok-free.app/api';
+      const apiUrl = 'http://165.22.90.212:8080/api';
       const fileUrl = `/files/download/${application.resumeId}`;
       Linking.openURL(`${apiUrl}${fileUrl}`);
     } catch (error) {
