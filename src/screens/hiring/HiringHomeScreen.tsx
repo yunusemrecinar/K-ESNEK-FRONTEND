@@ -4,7 +4,7 @@ import { Text, Card, Button, useTheme, Avatar, IconButton, Divider } from 'react
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { apiClient } from '../../services/api/client';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../hooks/useAuth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -66,6 +66,7 @@ const HiringHomeScreen = () => {
   const [loading, setLoading] = useState(true);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const isInitialMount = React.useRef(true);
 
   const fetchJobs = async () => {
     try {
@@ -125,8 +126,21 @@ const HiringHomeScreen = () => {
 
   // Fetch jobs when component mounts
   useEffect(() => {
-    fetchJobs();
+    if (isInitialMount.current) {
+      fetchJobs();
+      isInitialMount.current = false;
+    }
   }, []);
+
+  // Refetch jobs when screen comes into focus (e.g., returning from PostJobScreen)
+  useFocusEffect(
+    React.useCallback(() => {
+      // Only refetch if it's not the initial mount
+      if (!isInitialMount.current) {
+        fetchJobs();
+      }
+    }, [])
+  );
 
   const handleCreateJob = () => {
     // Navigate to job creation screen
