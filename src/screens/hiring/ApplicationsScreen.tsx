@@ -1,6 +1,6 @@
 import React, { useCallback, useState, useEffect } from 'react';
 import { View, StyleSheet, FlatList, RefreshControl } from 'react-native';
-import { Text, Card, Button, Avatar, Chip, Searchbar, useTheme, ActivityIndicator, Divider } from 'react-native-paper';
+import { Text, Card, Button, Avatar, Chip, Searchbar, useTheme, ActivityIndicator, Divider, IconButton } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -370,9 +370,18 @@ const ApplicationsScreen = () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text variant="headlineMedium" style={styles.title}>
-          Applications
-        </Text>
+        <View style={styles.headerTop}>
+          <IconButton
+            icon="arrow-left"
+            size={24}
+            onPress={() => navigation.goBack()}
+            style={styles.backButton}
+          />
+          <Text variant="headlineMedium" style={styles.title}>
+            Applications
+          </Text>
+          <View style={styles.headerSpacer} />
+        </View>
         <Searchbar
           placeholder="Search applications"
           onChangeText={onChangeSearch}
@@ -447,9 +456,21 @@ const styles = StyleSheet.create({
   header: {
     padding: 16,
   },
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  backButton: {
+    marginRight: 16,
+  },
   title: {
     fontWeight: 'bold',
-    marginBottom: 16,
+    flex: 1,
+    textAlign: 'center',
+  },
+  headerSpacer: {
+    flex: 1,
   },
   searchBar: {
     marginBottom: 16,
