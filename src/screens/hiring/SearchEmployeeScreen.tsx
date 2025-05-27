@@ -54,6 +54,7 @@ const SearchEmployeeScreen = () => {
   const [error, setError] = useState<string | null>(null);
   const [searchMode, setSearchMode] = useState<SearchMode>('recommended');
   const [recommendations, setRecommendations] = useState<UserRecommendationDto[]>([]);
+  const [recommendationsFetched, setRecommendationsFetched] = useState(false);
   
   // Fetch regular employees
   const fetchEmployees = async () => {
@@ -143,6 +144,7 @@ const SearchEmployeeScreen = () => {
       
       if (response.isSuccess && response.data) {
         setRecommendations(response.data);
+        setRecommendationsFetched(true);
         
         // Create employee objects from recommendation data
         const recommendedEmployees = createEmployeesFromRecommendations(response.data);
@@ -170,10 +172,12 @@ const SearchEmployeeScreen = () => {
           });
         }
       } else {
+        setRecommendationsFetched(true);
         setError(response.message || 'Failed to fetch recommendations');
       }
     } catch (err) {
       console.error('Error fetching recommendations:', err);
+      setRecommendationsFetched(true);
       setError('Failed to load recommendations. Please try again.');
     } finally {
       setLoading(false);
@@ -222,6 +226,7 @@ const SearchEmployeeScreen = () => {
     if (searchMode === 'all') {
       fetchEmployees();
     } else {
+      setRecommendationsFetched(false); // Reset the flag to allow refetching
       fetchRecommendedEmployees();
     }
   }, [searchMode]);
@@ -256,10 +261,14 @@ const SearchEmployeeScreen = () => {
     } else if (recommendations.length > 0) {
       updateFilteredEmployeesWithRecommendations(recommendations);
       setError(null); // Clear any errors when switching to recommendations view
-    } else if (user?.id) {
+    } else if (recommendationsFetched && recommendations.length === 0) {
+      // We've fetched recommendations but got an empty array
+      setFilteredEmployees([]);
+      setError(null); // Clear any previous errors
+    } else if (user?.id && !recommendationsFetched) {
       fetchRecommendedEmployees();
     }
-  }, [searchMode, employees, recommendations]);
+  }, [searchMode, employees, recommendations, recommendationsFetched]);
   
   // Filter employees based on search query
   useEffect(() => {
@@ -309,8 +318,8 @@ const SearchEmployeeScreen = () => {
     // If switching to "all" mode and we don't have employee data, try to fetch it
     if (newMode === 'all' && employees.length === 0) {
       fetchEmployees();
-    } else if (newMode === 'recommended' && recommendations.length === 0 && user?.id) {
-      // If switching to "recommended" mode and we don't have recommendations, fetch them
+    } else if (newMode === 'recommended' && recommendations.length === 0 && !recommendationsFetched && user?.id) {
+      // If switching to "recommended" mode and we haven't fetched recommendations yet, fetch them
       fetchRecommendedEmployees();
     }
     
