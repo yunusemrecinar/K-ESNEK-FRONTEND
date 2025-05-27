@@ -54,6 +54,8 @@ const ApplicationDetailsScreen = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState<string>('');
+  const [snackbarType, setSnackbarType] = useState<'success' | 'error'>('success');
   const [statusUpdating, setStatusUpdating] = useState(false);
   const theme = useTheme();
   const route = useRoute<ApplicationDetailsRouteProp>();
@@ -104,6 +106,8 @@ const ApplicationDetailsScreen = () => {
     } catch (error) {
       console.error('Error fetching application details:', error);
       setError('Failed to load application details. Please try again.');
+      setSnackbarMessage('Failed to load application details. Please try again.');
+      setSnackbarType('error');
       setSnackbarVisible(true);
     } finally {
       setIsLoading(false);
@@ -233,10 +237,16 @@ const ApplicationDetailsScreen = () => {
       const response = await apiClient.instance.patch(`/applications/${application.id}`, requestData);
       
       if (response.data && response.data.success) {
-        // Update local state
-        setApplication(prev => prev ? { ...prev, applicationStatus: newStatus } : null);
+        // Update local state with new status and current timestamp
+        const now = new Date().toISOString();
+        setApplication(prev => prev ? { 
+          ...prev, 
+          applicationStatus: newStatus,
+          updatedAt: now
+        } : null);
+        setSnackbarMessage(`Application ${newStatus.toLowerCase()} successfully`);
+        setSnackbarType('success');
         setSnackbarVisible(true);
-        setError(`Application ${newStatus.toLowerCase()} successfully`);
       } else {
         throw new Error(response.data?.message || 'Failed to update application status');
       }
@@ -247,8 +257,9 @@ const ApplicationDetailsScreen = () => {
         console.error('Error status:', error.response.status);
         console.error('Error data:', error.response.data ? JSON.stringify(error.response.data, null, 2) : 'No response data');
       }
+      setSnackbarMessage('Failed to update application status. Please try again.');
+      setSnackbarType('error');
       setSnackbarVisible(true);
-      setError('Failed to update application status. Please try again.');
     } finally {
       setStatusUpdating(false);
     }
@@ -264,7 +275,7 @@ const ApplicationDetailsScreen = () => {
 
     Alert.alert(
       'Accept Applicant',
-      `Are you sure you want to accept ${applicantName}? This action will notify the applicant and update their application status.`,
+      `Are you sure you want to accept ${applicantName}? This is a FINAL decision and cannot be changed later. The applicant will be notified immediately.`,
       [
         {
           text: 'Cancel',
@@ -290,7 +301,7 @@ const ApplicationDetailsScreen = () => {
 
     Alert.alert(
       'Reject Application',
-      `Are you sure you want to reject ${applicantName}'s application? This action cannot be undone and will notify the applicant.`,
+      `Are you sure you want to reject ${applicantName}'s application? This is a FINAL decision and cannot be changed later. The applicant will be notified of the rejection.`,
       [
         {
           text: 'Cancel',
@@ -309,8 +320,9 @@ const ApplicationDetailsScreen = () => {
   // Contact applicant (via chat)
   const contactApplicant = () => {
     if (!application || !application.userId) {
+      setSnackbarMessage('Could not find applicant information.');
+      setSnackbarType('error');
       setSnackbarVisible(true);
-      setError('Could not find applicant information.');
       return;
     }
     
@@ -336,8 +348,9 @@ const ApplicationDetailsScreen = () => {
   // View resume
   const viewResume = async () => {
     if (!application || !application.resumeId) {
+      setSnackbarMessage('No resume available for this application.');
+      setSnackbarType('error');
       setSnackbarVisible(true);
-      setError('No resume available for this application.');
       return;
     }
     
@@ -349,8 +362,9 @@ const ApplicationDetailsScreen = () => {
       Linking.openURL(`${apiUrl}${fileUrl}`);
     } catch (error) {
       console.error('Error opening resume:', error);
+      setSnackbarMessage('Could not open the resume. Please try again.');
+      setSnackbarType('error');
       setSnackbarVisible(true);
-      setError('Could not open the resume. Please try again.');
     }
   };
 
@@ -502,7 +516,7 @@ const ApplicationDetailsScreen = () => {
               <Button 
                 mode="contained" 
                 loading={statusUpdating}
-                disabled={statusUpdating || application.applicationStatus === 'Reviewing'}
+                disabled={statusUpdating || application.applicationStatus === 'Reviewing' || application.applicationStatus === 'Accepted' || application.applicationStatus === 'Rejected'}
                 onPress={() => updateApplicationStatus('Reviewing')}
                 style={[styles.statusButton, styles.reviewingButton]}
               >
@@ -512,7 +526,7 @@ const ApplicationDetailsScreen = () => {
               <Button 
                 mode="contained" 
                 loading={statusUpdating}
-                disabled={statusUpdating || application.applicationStatus === 'Interviewed'}
+                disabled={statusUpdating || application.applicationStatus === 'Interviewed' || application.applicationStatus === 'Accepted' || application.applicationStatus === 'Rejected'}
                 onPress={() => updateApplicationStatus('Interviewed')}
                 style={[styles.statusButton, styles.interviewedButton]}
               >
@@ -522,7 +536,7 @@ const ApplicationDetailsScreen = () => {
               <Button 
                 mode="contained" 
                 loading={statusUpdating}
-                disabled={statusUpdating || application.applicationStatus === 'Accepted'}
+                disabled={statusUpdating || application.applicationStatus === 'Accepted' || application.applicationStatus === 'Rejected'}
                 onPress={confirmAcceptApplicant}
                 style={[styles.statusButton, styles.acceptButton]}
               >
@@ -532,7 +546,7 @@ const ApplicationDetailsScreen = () => {
               <Button 
                 mode="contained" 
                 loading={statusUpdating}
-                disabled={statusUpdating || application.applicationStatus === 'Rejected'}
+                disabled={statusUpdating || application.applicationStatus === 'Accepted' || application.applicationStatus === 'Rejected'}
                 onPress={confirmRejectApplicant}
                 style={[styles.statusButton, styles.rejectButton]}
               >
@@ -548,12 +562,16 @@ const ApplicationDetailsScreen = () => {
         visible={snackbarVisible}
         onDismiss={() => setSnackbarVisible(false)}
         duration={3000}
+        style={[
+          snackbarType === 'success' ? { backgroundColor: '#4CAF50' } : { backgroundColor: '#F44336' }
+        ]}
         action={{
           label: 'Dismiss',
           onPress: () => setSnackbarVisible(false),
+          labelStyle: { color: '#fff' }
         }}
       >
-        {error}
+        {snackbarMessage}
       </Snackbar>
     </SafeAreaView>
   );
