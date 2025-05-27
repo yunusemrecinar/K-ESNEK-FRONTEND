@@ -335,74 +335,73 @@ const HiringProfileScreen: React.FC<Props> = ({ navigation }) => {
   return (
     <SafeAreaView style={styles.container}>
       {renderImagePickerModal()}
-      <View style={styles.topHeader}>
-        <View style={{ flex: 1 }} />
-        <TouchableOpacity
-          style={styles.logoutButton}
-          onPress={handleLogout}
-        >
-          <Ionicons name="log-out" size={24} color="#F44336" />
-        </TouchableOpacity>
-      </View>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
-          <View style={styles.avatarContainer}>
-            <TouchableOpacity onPress={handleProfilePictureUpload}>
-              {isLoading ? (
-                <Avatar.Icon 
-                  size={100} 
-                  icon="refresh"
-                  color="#fff"
-                  style={{backgroundColor: '#6C63FF'}}
-                />
-              ) : profilePicture ? (
-                <>
-                  <Avatar.Image
-                    size={100}
-                    source={{ uri: profilePicture }}
+          <View style={styles.profileRow}>
+            <View style={styles.avatarContainer}>
+              <TouchableOpacity onPress={handleProfilePictureUpload}>
+                {isLoading ? (
+                  <Avatar.Icon 
+                    size={100} 
+                    icon="refresh"
+                    color="#fff"
+                    style={{backgroundColor: '#6C63FF'}}
                   />
-                  {/* Use a regular Image component as a "probe" to detect loading errors */}
-                  <Image 
-                    source={{ uri: profilePicture }}
-                    style={{ width: 1, height: 1, opacity: 0 }}
-                    onLoadStart={() => console.log('Starting to load profile picture')}
-                    onError={() => {
-                      console.error('Failed to load profile picture');
-                      // Retry with fresh URL after error
-                      if (profile?.profilePictureId) {
-                        const freshUrl = `http://165.22.90.212:8080/api/files/download/${profile.profilePictureId}`;
-                        setProfilePicture(freshUrl);
-                      } else if (profilePicture?.includes('/api/files/download/')) {
-                        // Try to extract ID from the URL and retry with fresh URL
-                        const idMatch = profilePicture.match(/\/api\/files\/download\/(\d+)/);
-                        if (idMatch && idMatch[1]) {
-                          const freshUrl = `http://165.22.90.212:8080/api/files/download/${idMatch[1]}`;
+                ) : profilePicture ? (
+                  <>
+                    <Avatar.Image
+                      size={100}
+                      source={{ uri: profilePicture }}
+                    />
+                    {/* Use a regular Image component as a "probe" to detect loading errors */}
+                    <Image 
+                      source={{ uri: profilePicture }}
+                      style={{ width: 1, height: 1, opacity: 0 }}
+                      onLoadStart={() => console.log('Starting to load profile picture')}
+                      onError={() => {
+                        console.error('Failed to load profile picture');
+                        // Retry with fresh URL after error
+                        if (profile?.profilePictureId) {
+                          const freshUrl = `http://165.22.90.212:8080/api/files/download/${profile.profilePictureId}`;
                           setProfilePicture(freshUrl);
+                        } else if (profilePicture?.includes('/api/files/download/')) {
+                          // Try to extract ID from the URL and retry with fresh URL
+                          const idMatch = profilePicture.match(/\/api\/files\/download\/(\d+)/);
+                          if (idMatch && idMatch[1]) {
+                            const freshUrl = `http://165.22.90.212:8080/api/files/download/${idMatch[1]}`;
+                            setProfilePicture(freshUrl);
+                          }
                         }
-                      }
-                    }}
-                    onLoadEnd={() => console.log('Finished loading profile picture attempt')}
+                      }}
+                      onLoadEnd={() => console.log('Finished loading profile picture attempt')}
+                    />
+                  </>
+                ) : (
+                  <Avatar.Text 
+                    size={100} 
+                    label={profile.name.substring(0, 2).toUpperCase()}
+                    style={{backgroundColor: '#6C63FF'}}
                   />
-                </>
-              ) : (
-                <Avatar.Text 
-                  size={100} 
-                  label={profile.name.substring(0, 2).toUpperCase()}
-                  style={{backgroundColor: '#6C63FF'}}
-                />
-              )}
-              <View style={styles.profileImageOverlay}>
-                <Ionicons name="camera" size={24} color="white" />
-              </View>
-            </TouchableOpacity>
-            {!isEditing && (
-              <TouchableOpacity
-                style={styles.editButton}
-                onPress={() => setIsEditing(true)}
-              >
-                <Ionicons name="pencil" size={20} color={theme.colors.primary} />
+                )}
+                <View style={styles.profileImageOverlay}>
+                  <Ionicons name="camera" size={24} color="white" />
+                </View>
               </TouchableOpacity>
-            )}
+              {!isEditing && (
+                <TouchableOpacity
+                  style={styles.editButton}
+                  onPress={() => setIsEditing(true)}
+                >
+                  <Ionicons name="pencil" size={20} color={theme.colors.primary} />
+                </TouchableOpacity>
+              )}
+            </View>
+            <TouchableOpacity
+              style={styles.logoutButton}
+              onPress={handleLogout}
+            >
+              <Ionicons name="log-out" size={24} color="#F44336" />
+            </TouchableOpacity>
           </View>
           <Text variant="headlineMedium" style={styles.companyName}>
             {profile.name}
@@ -617,16 +616,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 24,
   },
+  profileRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+    marginBottom: 16,
+    width: '100%',
+    position: 'relative',
+  },
   avatarContainer: {
     position: 'relative',
-    marginBottom: 16,
-  },
-  headerButtons: {
-    position: 'absolute',
-    right: 0,
-    bottom: 0,
-    flexDirection: 'row',
-    gap: 8,
   },
   editButton: {
     position: 'absolute',
@@ -642,6 +641,9 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   logoutButton: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
     padding: 8,
     borderRadius: 20,
     backgroundColor: '#fff',
@@ -746,16 +748,6 @@ const styles = StyleSheet.create({
   linkText: {
     color: '#2196F3',
     textDecorationLine: 'underline',
-  },
-  topHeader: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
   },
 });
 
