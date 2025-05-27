@@ -65,22 +65,6 @@ export interface EmployerMessageListResponse {
 }
 
 class MessagingService {
-  // Test connection to the API
-  async testConnection(): Promise<boolean> {
-    try {
-      // Try to access a simple endpoint that doesn't require authentication
-      const response = await apiClient.instance.get('/');
-      return true;
-    } catch (error: any) {
-      console.error('API connection test failed:', error.message);
-      // Log the actual error response if available
-      if (error.response) {
-        console.error('Status:', error.response.status);
-        console.error('Data:', error.response.data);
-      }
-      return false;
-    }
-  }
 
   // Send a message to another user
   async sendMessage(request: CreateMessageRequest): Promise<Message> {

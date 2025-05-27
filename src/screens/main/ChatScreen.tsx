@@ -96,27 +96,10 @@ const ChatScreen = () => {
     }
   }, [userId, getCurrentUserId, accountType, idType]);
 
-  // Test API connection
-  const testApiConnection = useCallback(async () => {
-    try {
-      // Check auth token
-      const token = await apiClient.getStoredToken();
-      setDebugInfo(prev => prev + `\nAuth token: ${token ? 'Available' : 'NOT FOUND'}`);
-      
-      const result = await messagingService.testConnection();
-      setDebugInfo(prev => prev + `\nAPI test: ${result ? 'SUCCESS' : 'FAILED'}`);
-    } catch (error) {
-      setDebugInfo(prev => prev + `\nAPI test error: ${error}`);
-    }
-  }, []);
-  
   // Initial fetch
   useEffect(() => {
     // Get API base URL for debugging
     setApiBaseUrl(apiClient.instance.defaults.baseURL || 'Not set');
-    
-    // Test API connection
-    testApiConnection();
     
     fetchMessages();
     
@@ -128,7 +111,7 @@ const ChatScreen = () => {
     }, 10000);
     
     return () => clearInterval(interval);
-  }, [fetchMessages, isSending, testApiConnection]);
+  }, [fetchMessages, isSending]);
   
   // Handle sending a message
   const handleSend = async () => {
