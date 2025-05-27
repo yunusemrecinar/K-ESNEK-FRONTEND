@@ -55,6 +55,59 @@ const SearchEmployeeScreen = () => {
   const [searchMode, setSearchMode] = useState<SearchMode>('recommended');
   const [recommendations, setRecommendations] = useState<UserRecommendationDto[]>([]);
   const [recommendationsFetched, setRecommendationsFetched] = useState(false);
+  const [timeUntilUpdate, setTimeUntilUpdate] = useState<string>('');
+  
+  // Calculate time until next recommendation update
+  const calculateTimeUntilUpdate = useCallback(() => {
+    const now = new Date();
+    const currentHour = now.getHours();
+    
+    // Update hours: 0, 4, 8, 12, 16, 20
+    const updateHours = [0, 4, 8, 12, 16, 20];
+    
+    // Find the next update hour
+    let nextUpdateHour = updateHours.find(hour => hour > currentHour);
+    
+    // If no update hour found for today, next update is at 00:00 tomorrow
+    if (!nextUpdateHour) {
+      nextUpdateHour = 24; // Will be handled as next day 00:00
+    }
+    
+    // Calculate next update time
+    const nextUpdate = new Date(now);
+    if (nextUpdateHour === 24) {
+      nextUpdate.setDate(nextUpdate.getDate() + 1);
+      nextUpdate.setHours(0, 0, 0, 0);
+    } else {
+      nextUpdate.setHours(nextUpdateHour, 0, 0, 0);
+    }
+    
+    // Calculate time difference
+    const timeDiff = nextUpdate.getTime() - now.getTime();
+    const hoursLeft = Math.floor(timeDiff / (1000 * 60 * 60));
+    const minutesLeft = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
+    
+    if (hoursLeft > 0) {
+      return `${hoursLeft}h ${minutesLeft}m`;
+    } else {
+      return `${minutesLeft}m`;
+    }
+  }, []);
+  
+  // Update countdown timer every minute
+  useEffect(() => {
+    const updateTimer = () => {
+      setTimeUntilUpdate(calculateTimeUntilUpdate());
+    };
+    
+    // Update immediately
+    updateTimer();
+    
+    // Update every minute
+    const interval = setInterval(updateTimer, 60000);
+    
+    return () => clearInterval(interval);
+  }, [calculateTimeUntilUpdate]);
   
   // Fetch regular employees
   const fetchEmployees = async () => {
@@ -512,14 +565,6 @@ const SearchEmployeeScreen = () => {
       
       <Divider style={styles.divider} />
       
-      {error && (
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{error}</Text>
-          <Button mode="contained" onPress={onRefresh} style={styles.retryButton}>
-            Retry
-          </Button>
-        </View>
-      )}
       
       {loading && !refreshing ? (
         <View style={styles.centerContainer}>
@@ -539,7 +584,7 @@ const SearchEmployeeScreen = () => {
               <Ionicons name="people-outline" size={64} color={theme.colors.primary} />
               <Text variant="titleMedium" style={styles.emptyText}>
                 {searchMode === 'recommended' 
-                  ? 'No recommended employees found'
+                  ? 'No recommended employees available'
                   : 'No employees found'}
               </Text>
               <Text variant="bodyMedium" style={styles.emptySubtext}>
@@ -549,6 +594,54 @@ const SearchEmployeeScreen = () => {
                     ? 'Try switching to "All Employees" view'
                     : 'Try refreshing or check back later'}
               </Text>
+              {searchMode === 'recommended' && !searchQuery && (
+                <View style={styles.updateInfoContainer}>
+                  <View style={styles.updateHeaderContainer}>
+                    <View style={styles.updateIconWrapper}>
+                      <Ionicons name="time" size={24} color="#4caf50" />
+                    </View>
+                    <Text style={styles.updateHeaderText}>Recommendation Updates</Text>
+                  </View>
+                  
+                  <View style={styles.updateContentContainer}>
+                    <Text style={styles.updateDescriptionText}>
+                      Our AI updates recommendations every 4 hours to find the best matches for you
+                    </Text>
+                    
+                    <View style={styles.countdownContainer}>
+                      <View style={styles.countdownBadge}>
+                        <Ionicons name="timer-outline" size={18} color="#4caf50" />
+                        <Text style={styles.countdownText}>Next update in</Text>
+                        <View style={styles.timeDisplay}>
+                          <Text style={styles.timeValue}>{timeUntilUpdate}</Text>
+                        </View>
+                      </View>
+                    </View>
+                    
+                    <View style={styles.scheduleContainer}>
+                      <Text style={styles.scheduleLabel}>Update Schedule:</Text>
+                      <View style={styles.scheduleTimesContainer}>
+                        {['00:00', '04:00', '08:00', '12:00', '16:00', '20:00'].map((time, index) => (
+                          <View key={index} style={styles.scheduleTimeChip}>
+                            <Text style={styles.scheduleTimeText}>{time}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                  </View>
+                  
+                  <Button 
+                    mode="contained" 
+                    onPress={onRefresh} 
+                    style={styles.refreshButton}
+                    contentStyle={styles.refreshButtonContent}
+                    icon="refresh"
+                    buttonColor="#4caf50"
+                  >
+                    Check for Updates Now
+                  </Button>
+                </View>
+              )}
             </View>
           }
         />
@@ -761,6 +854,127 @@ const styles = StyleSheet.create({
   },
   inactiveSegmentText: {
     color: '#666',
+  },
+  updateInfoContainer: {
+    marginTop: 24,
+    padding: 20,
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#e8f5e9',
+    width: '100%',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  updateHeaderContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    width: '100%',
+    justifyContent: 'center',
+  },
+  updateIconWrapper: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#e8f5e9',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  updateHeaderText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#2e7d32',
+  },
+  updateContentContainer: {
+    width: '100%',
+    marginBottom: 20,
+  },
+  updateDescriptionText: {
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+    marginBottom: 16,
+    color: '#666',
+  },
+  countdownContainer: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  countdownBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f1f8e9',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#c8e6c9',
+  },
+  countdownText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#2e7d32',
+    fontWeight: '500',
+  },
+  timeDisplay: {
+    marginLeft: 8,
+    backgroundColor: '#4caf50',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  timeValue: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#ffffff',
+  },
+  scheduleContainer: {
+    width: '100%',
+    alignItems: 'center',
+  },
+  scheduleLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 8,
+    color: '#2e7d32',
+  },
+  scheduleTimesContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+  },
+  scheduleTimeChip: {
+    marginHorizontal: 4,
+    marginVertical: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#f8f9fa',
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+    borderRadius: 16,
+  },
+  scheduleTimeText: {
+    fontSize: 12,
+    color: '#495057',
+    fontWeight: '500',
+  },
+  refreshButton: {
+    borderRadius: 24,
+    minWidth: 200,
+  },
+  refreshButtonContent: {
+    paddingHorizontal: 20,
+    paddingVertical: 8,
   },
 });
 

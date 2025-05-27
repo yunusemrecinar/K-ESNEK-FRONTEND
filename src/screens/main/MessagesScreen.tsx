@@ -235,9 +235,6 @@ const MessagesScreen = () => {
         <Text variant="headlineMedium" style={styles.title}>
           Messages
         </Text>
-        <TouchableOpacity style={styles.newMessageButton}>
-          <MaterialCommunityIcons name="pencil" size={24} color="#6C63FF" />
-        </TouchableOpacity>
       </View>
 
       <Searchbar
@@ -294,14 +291,6 @@ const styles = StyleSheet.create({
   title: {
     fontWeight: '600',
     color: '#6C63FF',
-  },
-  newMessageButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F8F9FF',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   searchBar: {
     marginHorizontal: 16,
