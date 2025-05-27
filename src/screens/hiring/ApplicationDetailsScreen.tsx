@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Linking, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, ScrollView, Linking, TouchableOpacity, Alert } from 'react-native';
 import { Text, Card, Chip, Button, Divider, ActivityIndicator, useTheme, Snackbar } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -254,6 +254,58 @@ const ApplicationDetailsScreen = () => {
     }
   };
 
+  // Confirmation dialog for accepting applicant
+  const confirmAcceptApplicant = () => {
+    const applicantName = application?.user 
+      ? `${application.user.firstName} ${application.user.lastName}`.trim() 
+      : application?.employeeProfile 
+        ? `${application.employeeProfile.firstName} ${application.employeeProfile.lastName}`.trim()
+        : 'this applicant';
+
+    Alert.alert(
+      'Accept Applicant',
+      `Are you sure you want to accept ${applicantName}? This action will notify the applicant and update their application status.`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Accept',
+          style: 'default',
+          onPress: () => updateApplicationStatus('Accepted'),
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
+  // Confirmation dialog for rejecting applicant
+  const confirmRejectApplicant = () => {
+    const applicantName = application?.user 
+      ? `${application.user.firstName} ${application.user.lastName}`.trim() 
+      : application?.employeeProfile 
+        ? `${application.employeeProfile.firstName} ${application.employeeProfile.lastName}`.trim()
+        : 'this applicant';
+
+    Alert.alert(
+      'Reject Application',
+      `Are you sure you want to reject ${applicantName}'s application? This action cannot be undone and will notify the applicant.`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Reject',
+          style: 'destructive',
+          onPress: () => updateApplicationStatus('Rejected'),
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
   // Contact applicant (via chat)
   const contactApplicant = () => {
     if (!application || !application.userId) {
@@ -471,7 +523,7 @@ const ApplicationDetailsScreen = () => {
                 mode="contained" 
                 loading={statusUpdating}
                 disabled={statusUpdating || application.applicationStatus === 'Accepted'}
-                onPress={() => updateApplicationStatus('Accepted')}
+                onPress={confirmAcceptApplicant}
                 style={[styles.statusButton, styles.acceptButton]}
               >
                 Accept Applicant
@@ -481,7 +533,7 @@ const ApplicationDetailsScreen = () => {
                 mode="contained" 
                 loading={statusUpdating}
                 disabled={statusUpdating || application.applicationStatus === 'Rejected'}
-                onPress={() => updateApplicationStatus('Rejected')}
+                onPress={confirmRejectApplicant}
                 style={[styles.statusButton, styles.rejectButton]}
               >
                 Reject Applicant
