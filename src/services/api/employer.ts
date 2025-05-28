@@ -17,6 +17,13 @@ interface UpdateEmployerProfileCommand {
   // Email is not included as it's not updatable by users
 }
 
+// Define the employer stats interface
+interface EmployerStats {
+  activeJobs: number;
+  totalApplications: number;
+  hired: number;
+}
+
 /**
  * Employer API service for fetching and managing employer data
  */
@@ -44,6 +51,19 @@ export const employerService = {
     const response = await apiClient.instance.put<ApiResponse<EmployerProfile>>(
       `/employer-profile/${userId}`,
       profile
+    );
+    
+    return response.data.data;
+  },
+
+  /**
+   * Get employer statistics
+   * @param userId User ID
+   * @returns Employer statistics
+   */
+  getEmployerStats: async (userId: number | string): Promise<EmployerStats> => {
+    const response = await apiClient.instance.get<ApiResponse<EmployerStats>>(
+      `/employer-profile/${userId}/stats`
     );
     
     return response.data.data;

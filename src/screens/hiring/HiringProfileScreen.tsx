@@ -43,6 +43,11 @@ const HiringProfileScreen: React.FC<Props> = ({ navigation }) => {
   const [mediaLibraryAssets, setMediaLibraryAssets] = useState<MediaLibrary.Asset[]>([]);
   const [profilePicture, setProfilePicture] = useState<string | null>(null);
   const [uploadType, setUploadType] = useState<'profile'>('profile');
+  const [stats, setStats] = useState([
+    { label: 'Active Jobs', value: '0' },
+    { label: 'Total Applications', value: '0' },
+    { label: 'Hired', value: '0' },
+  ]);
   
   console.log("Current user in AuthContext:", user);
   
@@ -63,7 +68,26 @@ const HiringProfileScreen: React.FC<Props> = ({ navigation }) => {
 
   useEffect(() => {
     fetchProfileData();
+    fetchStatsData();
   }, [userId]);
+
+  const fetchStatsData = async () => {
+    if (!userId || userId === '0') return;
+    
+    try {
+      const statsData = await employerService.getEmployerStats(userId);
+      console.log("Stats data from API:", statsData);
+      
+      setStats([
+        { label: 'Active Jobs', value: statsData.activeJobs.toString() },
+        { label: 'Total Applications', value: statsData.totalApplications.toString() },
+        { label: 'Hired', value: statsData.hired.toString() },
+      ]);
+    } catch (error: any) {
+      console.error("Error fetching stats:", error);
+      // Keep default values on error
+    }
+  };
 
   const fetchProfileData = async () => {
     if (!userId || userId === '0') return;
@@ -164,6 +188,8 @@ const HiringProfileScreen: React.FC<Props> = ({ navigation }) => {
       
       // Refresh profile data to ensure we have the latest
       await fetchProfileData();
+      // Also refresh stats data in case any changes affect the statistics
+      await fetchStatsData();
       
       setIsEditing(false);
       Alert.alert('Success', 'Profile updated successfully');
@@ -265,6 +291,8 @@ const HiringProfileScreen: React.FC<Props> = ({ navigation }) => {
       
       // Refresh profile data to ensure we have the latest file IDs
       await fetchProfileData();
+      // Also refresh stats data to keep everything in sync
+      await fetchStatsData();
       
       setIsUploading(false);
     } catch (error) {
@@ -309,12 +337,6 @@ const HiringProfileScreen: React.FC<Props> = ({ navigation }) => {
       </SafeAreaView>
     </Modal>
   );
-
-  const stats = [
-    { label: 'Active Jobs', value: '12' },
-    { label: 'Total Applications', value: '145' },
-    { label: 'Hired', value: '8' },
-  ];
 
   const handleLogout = async () => {
     try {
