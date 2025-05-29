@@ -86,7 +86,7 @@ export const recommendationsApi = {
     console.log('Fetching recommended users for employer:', employerId);
     try {
       const response = await apiClient.instance.get(`/recommendations/users/for-employer/${employerId}`);
-      console.log('Response:', response.data);
+      console.log('Response:', JSON.stringify(response.data, null, 2));
       
       // Map backend response format to frontend expected format
       if (response.data && typeof response.data.success === 'boolean') {
@@ -103,11 +103,35 @@ export const recommendationsApi = {
           isSuccess: false
         };
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Error fetching recommended users for employer ${employerId}:`, error);
+      
+      // Log detailed error information
+      if (error.response) {
+        console.error('HTTP Status:', error.response.status);
+        console.error('HTTP Headers:', error.response.headers);
+        console.error('Response Data:', error.response.data);
+        console.error('Request Config:', error.config);
+      }
+      
+      let errorMessage = 'Unknown error occurred';
+      if (error.response?.status === 400) {
+        errorMessage = `Bad Request (400): ${error.response.data?.message || error.response.data || 'Invalid request parameters'}`;
+      } else if (error.response?.status === 401) {
+        errorMessage = 'Unauthorized (401): Please log in again';
+      } else if (error.response?.status === 403) {
+        errorMessage = 'Forbidden (403): You don\'t have permission to access this resource';
+      } else if (error.response?.status === 404) {
+        errorMessage = 'Not Found (404): Endpoint not found';
+      } else if (error.response?.status === 500) {
+        errorMessage = 'Internal Server Error (500): Please try again later';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       return {
         data: [],
-        message: error instanceof Error ? error.message : 'Unknown error occurred',
+        message: errorMessage,
         isSuccess: false
       };
     }
