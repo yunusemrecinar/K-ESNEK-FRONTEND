@@ -8,6 +8,15 @@ interface ApiResponse<T> {
 }
 
 /**
+ * Employee statistics interface
+ */
+export interface EmployeeStats {
+  totalProjects: number;
+  totalRatingsSum: number;
+  yearsOfExperience: number;
+}
+
+/**
  * Employee API service for fetching and managing employee data
  */
 export const employeeService = {
@@ -32,6 +41,19 @@ export const employeeService = {
   getPublicEmployeeProfile: async (userId: number | string): Promise<EmployeeProfile> => {
     const response = await apiClient.instance.get<ApiResponse<EmployeeProfile>>(
       `/employee-profile/public/${userId}`
+    );
+    
+    return response.data.data;
+  },
+
+  /**
+   * Get employee statistics
+   * @param userId User ID
+   * @returns Employee statistics
+   */
+  getEmployeeStats: async (userId: number | string): Promise<EmployeeStats> => {
+    const response = await apiClient.instance.get<ApiResponse<EmployeeStats>>(
+      `/employee-profile/${userId}/stats`
     );
     
     return response.data.data;

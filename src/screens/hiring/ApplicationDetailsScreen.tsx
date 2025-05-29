@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Linking, TouchableOpacity, Alert } from 'react-native';
-import { Text, Card, Chip, Button, Divider, ActivityIndicator, useTheme, Snackbar } from 'react-native-paper';
+import { View, StyleSheet, ScrollView, Linking, TouchableOpacity, Alert, Modal, TextInput } from 'react-native';
+import { Text, Card, Chip, Button, Divider, ActivityIndicator, useTheme, Snackbar, IconButton } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { apiClient } from '../../services/api/client';
 import { employeeService } from '../../services/api/employee';
+import { employeeReviewsService, CreateEmployeeReviewDto } from '../../services/api/employeeReviews';
 import { EmployeeProfile } from '../../types/profile';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Define the types
 type RootStackParamList = {
@@ -57,6 +59,14 @@ const ApplicationDetailsScreen = () => {
   const [snackbarMessage, setSnackbarMessage] = useState<string>('');
   const [snackbarType, setSnackbarType] = useState<'success' | 'error'>('success');
   const [statusUpdating, setStatusUpdating] = useState(false);
+  
+  // Review modal state
+  const [reviewModalVisible, setReviewModalVisible] = useState(false);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState('');
+  const [projectTitle, setProjectTitle] = useState('');
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+  
   const theme = useTheme();
   const route = useRoute<ApplicationDetailsRouteProp>();
   const navigation = useNavigation<ApplicationDetailsNavigationProp>();
@@ -357,7 +367,7 @@ const ApplicationDetailsScreen = () => {
     try {
       // Construct proper URL for resume download
       // Use the ngrok URL or API URL from the config
-      const apiUrl = 'http://165.22.90.212:8080/api';
+      const apiUrl = 'https://e8ac-5-24-158-207.ngrok-free.app/api';
       const fileUrl = `/files/download/${application.resumeId}`;
       Linking.openURL(`${apiUrl}${fileUrl}`);
     } catch (error) {
@@ -366,6 +376,190 @@ const ApplicationDetailsScreen = () => {
       setSnackbarType('error');
       setSnackbarVisible(true);
     }
+  };
+
+  // Review functions
+  const openReviewModal = () => {
+    setProjectTitle(job?.title || '');
+    setReviewComment('');
+    setReviewRating(5);
+    setReviewModalVisible(true);
+  };
+
+  const closeReviewModal = () => {
+    setReviewModalVisible(false);
+    setReviewComment('');
+    setProjectTitle('');
+    setReviewRating(5);
+  };
+
+  const submitReview = async () => {
+    if (!application) {
+      setSnackbarMessage('Could not find application information.');
+      setSnackbarType('error');
+      setSnackbarVisible(true);
+      return;
+    }
+
+    // Get employee ID from either employeeProfile or user object
+    const employeeId = application.employeeProfile?.id || application.user?.id;
+    
+    if (!employeeId) {
+      setSnackbarMessage('Employee ID not available.');
+      setSnackbarType('error');
+      setSnackbarVisible(true);
+      return;
+    }
+
+    if (reviewRating < 1 || reviewRating > 5) {
+      setSnackbarMessage('Please provide a rating between 1 and 5 stars.');
+      setSnackbarType('error');
+      setSnackbarVisible(true);
+      return;
+    }
+
+    try {
+      setIsSubmittingReview(true);
+      
+      // Get the current user (employer) ID from context/storage
+      const currentUserString = await AsyncStorage.getItem('employerData');
+      
+      let employerId: number;
+      
+      if (currentUserString) {
+        const currentUser = JSON.parse(currentUserString);
+        employerId = currentUser.id;
+      } else {
+        throw new Error('Employer information not found');
+      }
+
+      const reviewData: CreateEmployeeReviewDto = {
+        employeeId: employeeId,
+        employerId: employerId,
+        rating: reviewRating,
+        comment: reviewComment.trim() || undefined,
+        projectTitle: projectTitle.trim() || undefined,
+      };
+
+      await employeeReviewsService.createEmployeeReview(reviewData);
+      
+      setSnackbarMessage('Review submitted successfully!');
+      setSnackbarType('success');
+      setSnackbarVisible(true);
+      closeReviewModal();
+      
+    } catch (error: any) {
+      console.error('Error submitting review:', error);
+      setSnackbarMessage('Failed to submit review. Please try again.');
+      setSnackbarType('error');
+      setSnackbarVisible(true);
+    } finally {
+      setIsSubmittingReview(false);
+    }
+  };
+
+  const renderRatingStars = () => {
+    return (
+      <View style={styles.ratingContainer}>
+        <Text variant="labelLarge" style={styles.ratingLabel}>Rating:</Text>
+        <View style={styles.starsContainer}>
+          {[1, 2, 3, 4, 5].map((star) => (
+            <TouchableOpacity
+              key={star}
+              onPress={() => setReviewRating(star)}
+              style={styles.starButton}
+            >
+              <MaterialCommunityIcons
+                name={star <= reviewRating ? 'star' : 'star-outline'}
+                size={24}
+                color={star <= reviewRating ? '#FFC107' : '#CCCCCC'}
+              />
+            </TouchableOpacity>
+          ))}
+        </View>
+        <Text style={styles.ratingText}>{reviewRating}/5</Text>
+      </View>
+    );
+  };
+
+  const renderReviewModal = () => {
+    return (
+      <Modal
+        visible={reviewModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={closeReviewModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.reviewModalContainer}>
+            <View style={styles.modalHeader}>
+              <Text variant="titleLarge" style={styles.modalTitle}>
+                Leave a Review for {application?.user?.firstName || application?.employeeProfile?.firstName}
+              </Text>
+              <IconButton
+                icon="close"
+                onPress={closeReviewModal}
+                disabled={isSubmittingReview}
+              />
+            </View>
+            
+            <ScrollView style={styles.modalContent}>
+              {/* Rating Section */}
+              {renderRatingStars()}
+              
+              {/* Project Title */}
+              <View style={styles.inputSection}>
+                <Text variant="labelLarge" style={styles.inputLabel}>Project Title (Optional)</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={projectTitle}
+                  onChangeText={setProjectTitle}
+                  placeholder="e.g., Website Development, Mobile App Design"
+                  placeholderTextColor="#999"
+                  editable={!isSubmittingReview}
+                />
+              </View>
+              
+              {/* Comment Section */}
+              <View style={styles.inputSection}>
+                <Text variant="labelLarge" style={styles.inputLabel}>Comment (Optional)</Text>
+                <TextInput
+                  style={[styles.textInput, styles.commentInput]}
+                  value={reviewComment}
+                  onChangeText={setReviewComment}
+                  placeholder="Share your experience working with this employee..."
+                  placeholderTextColor="#999"
+                  multiline
+                  numberOfLines={4}
+                  textAlignVertical="top"
+                  editable={!isSubmittingReview}
+                />
+              </View>
+            </ScrollView>
+            
+            <View style={styles.modalActions}>
+              <Button 
+                mode="outlined" 
+                onPress={closeReviewModal}
+                style={styles.modalButton}
+                disabled={isSubmittingReview}
+              >
+                Cancel
+              </Button>
+              <Button 
+                mode="contained" 
+                onPress={submitReview}
+                style={styles.modalButtonPrimary}
+                loading={isSubmittingReview}
+                disabled={isSubmittingReview}
+              >
+                Submit Review
+              </Button>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
   };
 
   if (isLoading) {
@@ -508,6 +702,23 @@ const ApplicationDetailsScreen = () => {
               </Button>
             </View>
             
+            {/* Leave Review Button - Only show for accepted applications */}
+            {application.applicationStatus === 'Accepted' && (
+              <>
+                <Divider style={styles.divider} />
+                <Text variant="titleMedium" style={styles.statusTitle}>Post-Project</Text>
+                <Button 
+                  mode="contained" 
+                  icon="star-outline" 
+                  onPress={openReviewModal}
+                  style={[styles.statusButton, styles.reviewButton]}
+                  disabled={isSubmittingReview}
+                >
+                  Leave Review for {application.user?.firstName || application.employeeProfile?.firstName}
+                </Button>
+              </>
+            )}
+            
             <Divider style={styles.divider} />
             
             <Text variant="titleMedium" style={styles.statusTitle}>Update Status</Text>
@@ -573,6 +784,8 @@ const ApplicationDetailsScreen = () => {
       >
         {snackbarMessage}
       </Snackbar>
+      
+      {renderReviewModal()}
     </SafeAreaView>
   );
 };
@@ -707,6 +920,104 @@ const styles = StyleSheet.create({
   },
   rejectButton: {
     backgroundColor: '#F44336',
+  },
+  ratingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+    paddingVertical: 8,
+  },
+  ratingLabel: {
+    marginRight: 12,
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  starsContainer: {
+    flexDirection: 'row',
+    marginRight: 12,
+  },
+  starButton: {
+    padding: 8,
+    marginHorizontal: 2,
+  },
+  ratingText: {
+    marginLeft: 8,
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#666',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  reviewModalContainer: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    width: '90%',
+    maxHeight: '85%',
+    maxWidth: 500,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  modalTitle: {
+    fontWeight: 'bold',
+    flex: 1,
+    marginRight: 8,
+  },
+  modalContent: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    maxHeight: 400,
+  },
+  inputSection: {
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontWeight: 'bold',
+    marginBottom: 8,
+    color: '#333',
+  },
+  textInput: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    backgroundColor: '#fff',
+  },
+  commentInput: {
+    height: 100,
+    textAlignVertical: 'top',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    padding: 16,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+  },
+  modalButtonPrimary: {
+    flex: 1,
+    backgroundColor: '#6C63FF',
+  },
+  reviewButton: {
+    backgroundColor: '#FFA726',
   },
 });
 

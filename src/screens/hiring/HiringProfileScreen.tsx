@@ -121,7 +121,7 @@ const HiringProfileScreen: React.FC<Props> = ({ navigation }) => {
         
         // Replace localhost URLs with ngrok URL
         if (url.includes('localhost') || url.includes('127.0.0.1')) {
-          return url.replace(/(http|https):\/\/(localhost|127\.0\.0\.1)(:\d+)?/, 'http://165.22.90.212:8080');
+          return url.replace(/(http|https):\/\/(localhost|127\.0\.0\.1)(:\d+)?/, 'https://e8ac-5-24-158-207.ngrok-free.app');
         }
         
         return url;
@@ -133,7 +133,7 @@ const HiringProfileScreen: React.FC<Props> = ({ navigation }) => {
         setProfilePicture(accessibleUrl);
       } else if (profileData.profilePictureId) {
         // If we have an ID but no URL, construct the URL directly
-        const directUrl = `http://165.22.90.212:8080/api/files/download/${profileData.profilePictureId}`;
+        const directUrl = `https://e8ac-5-24-158-207.ngrok-free.app/api/files/download/${profileData.profilePictureId}`;
         setProfilePicture(directUrl);
       } else {
         setProfilePicture(null);
@@ -384,13 +384,13 @@ const HiringProfileScreen: React.FC<Props> = ({ navigation }) => {
                         console.error('Failed to load profile picture');
                         // Retry with fresh URL after error
                         if (profile?.profilePictureId) {
-                          const freshUrl = `http://165.22.90.212:8080/api/files/download/${profile.profilePictureId}`;
+                          const freshUrl = `https://e8ac-5-24-158-207.ngrok-free.app/api/files/download/${profile.profilePictureId}`;
                           setProfilePicture(freshUrl);
                         } else if (profilePicture?.includes('/api/files/download/')) {
                           // Try to extract ID from the URL and retry with fresh URL
                           const idMatch = profilePicture.match(/\/api\/files\/download\/(\d+)/);
                           if (idMatch && idMatch[1]) {
-                            const freshUrl = `http://165.22.90.212:8080/api/files/download/${idMatch[1]}`;
+                            const freshUrl = `https://e8ac-5-24-158-207.ngrok-free.app/api/files/download/${idMatch[1]}`;
                             setProfilePicture(freshUrl);
                           }
                         }

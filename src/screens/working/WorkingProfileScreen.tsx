@@ -11,6 +11,7 @@ import {
   Modal,
   FlatList,
   TextInput,
+  ActivityIndicator,
 } from 'react-native';
 import { Text, Button, Avatar, Card, Chip, IconButton } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -20,7 +21,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import * as MediaLibrary from 'expo-media-library';
 import { fileService } from '../../services/api/files';
-import { employeeService } from '../../services/api/employee';
+import { employeeService, EmployeeStats } from '../../services/api/employee';
 import { apiClient } from '../../services/api/client';
 import { AuthContext } from '../../contexts/AuthContext';
 import { EmployeeProfile, EmployeeService } from '../../types/profile';
@@ -28,6 +29,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { CommonActions } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { CompositeScreenParamList } from '../../types/navigation';
+import { employeeReviewsService, EmployeeReviewDto } from '../../services/api/employeeReviews';
 
 const { width } = Dimensions.get('window');
 
@@ -57,6 +59,7 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [profile, setProfile] = useState<EmployeeProfile | null>(null);
+  const [stats, setStats] = useState<EmployeeStats | null>(null);
   const [showImagePicker, setShowImagePicker] = useState(false);
   const [mediaLibraryAssets, setMediaLibraryAssets] = useState<MediaLibrary.Asset[]>([]);
   const [uploadType, setUploadType] = useState<'profile' | 'background'>('profile');
@@ -72,12 +75,15 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   
   const userId = user?.id || '0'; // Get user ID from AuthContext or default to 0
   const rating = profile?.averageRating || 4.9;
+  console.log("rating", rating);
 
-  const stats: Stat[] = [
-    { label: 'Projects', value: profile?.totalProjects?.toString() || '143', icon: 'briefcase-outline' },
-    { label: 'Reviews', value: profile?.totalReviews?.toString() || '98', icon: 'star-outline' },
-    { label: 'Years', value: profile?.yearsOfExperience?.toString() || '5', icon: 'calendar-outline' },
+  const statsData: Stat[] = [
+    { label: 'Projects', value: stats?.totalProjects?.toString() || profile?.totalProjects?.toString() || '0', icon: 'briefcase-outline' },
+    { label: 'Reviews', value: stats?.totalRatingsSum?.toString() || profile?.totalReviews?.toString() || '0', icon: 'star-outline' },
+    { label: 'Years', value: stats?.yearsOfExperience?.toString() || profile?.yearsOfExperience?.toString() || '0', icon: 'calendar-outline' },
   ];
+
+  console.log("stats", stats);
 
   // Initialize default services
   const defaultServices: EmployeeService[] = [
@@ -92,42 +98,59 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
     ? profile.services 
     : defaultServices;
 
-  const reviews = [
-    {
-      id: '1',
-      author: 'Emma Thompson',
-      rating: 5,
-      date: '2 days ago',
-      comment: 'Amazing service! Very professional and caring with my pets.',
-      avatar: 'E',
-    },
-    {
-      id: '2',
-      author: 'John Miller',
-      rating: 5,
-      date: '1 week ago',
-      comment: 'Great experience. Would definitely recommend!',
-      avatar: 'J',
-    },
-    {
-      id: '3',
-      author: 'Sarah Wilson',
-      rating: 4,
-      date: '2 weeks ago',
-      comment: 'Very reliable and trustworthy. My dog loves her walks with Ryan.',
-      avatar: 'S',
-    },
-  ];
-  
+  const [reviews, setReviews] = useState<EmployeeReviewDto[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+
   useEffect(() => {
     fetchProfileData();
   }, [userId]);
-  
+
+  useEffect(() => {
+    if (profile?.id) {
+      fetchReviews();
+    }
+  }, [profile?.id]);
+
+  const fetchReviews = async () => {
+    if (!profile?.id) return;
+    
+    try {
+      setReviewsLoading(true);
+      const reviewData = await employeeReviewsService.getEmployeeReviews(profile.id);
+      setReviews(reviewData.recentReviews || []);
+    } catch (error) {
+      console.error("Error fetching reviews:", error);
+      // Don't show alert for reviews as it's not critical
+      setReviews([]);
+    } finally {
+      setReviewsLoading(false);
+    }
+  };
+
+  const formatReviewDate = (dateString: string): string => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffTime = Math.abs(now.getTime() - date.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 1) return '1 day ago';
+    if (diffDays < 7) return `${diffDays} days ago`;
+    if (diffDays < 30) return `${Math.ceil(diffDays / 7)} weeks ago`;
+    if (diffDays < 365) return `${Math.ceil(diffDays / 30)} months ago`;
+    return `${Math.ceil(diffDays / 365)} years ago`;
+  };
+
+  const getInitials = (name: string): string => {
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  };
+
   const fetchProfileData = async () => {
     if (!userId || userId === '0') return;
     
     try {
       setIsLoading(true);
+      
+      // Fetch profile data
       const profileData = await employeeService.getEmployeeProfile(userId);
       
       // If services data is provided as JSON string, parse it
@@ -142,13 +165,22 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
       
       setProfile(profileData);
       
+      // Fetch stats data
+      try {
+        const statsData = await employeeService.getEmployeeStats(userId);
+        setStats(statsData);
+      } catch (error) {
+        console.error("Error fetching stats:", error);
+        // Keep stats as null if fetch fails, will fall back to profile data
+      }
+      
       // Helper function to ensure URLs are accessible from mobile
       const makeUrlAccessible = (url: string | null | undefined): string | null => {
         if (!url) return null;
         
         // Replace localhost URLs with ngrok URL
         if (url.includes('localhost') || url.includes('127.0.0.1')) {
-          return url.replace(/(http|https):\/\/(localhost|127\.0\.0\.1)(:\d+)?/, 'http://165.22.90.212:8080');
+          return url.replace(/(http|https):\/\/(localhost|127\.0\.0\.1)(:\d+)?/, 'https://e8ac-5-24-158-207.ngrok-free.app');
         }
         
         return url;
@@ -658,9 +690,6 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                   }
                 }}
               />
-              {__DEV__ && <Text style={{ position: 'absolute', top: 10, left: 10, backgroundColor: 'rgba(0,0,0,0.5)', color: 'white', padding: 5, fontSize: 10 }}>
-                URL: {backgroundPicture}
-              </Text>}
             </>
           ) : (
             <MaterialCommunityIcons name="image" size={32} color="#666" style={styles.placeholderIcon} />
@@ -705,9 +734,6 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                     onLoadEnd={() => console.log('Finished loading profile picture attempt')}
                   />
                 </View>
-                {__DEV__ && <Text style={{ position: 'absolute', bottom: -20, left: 0, backgroundColor: 'rgba(0,0,0,0.5)', color: 'white', fontSize: 8, padding: 2 }}>
-                  URL: {profilePicture}
-                </Text>}
               </>
             ) : (
               <Avatar.Icon 
@@ -775,7 +801,7 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
 
           {/* Stats Section */}
           <View style={styles.statsContainer}>
-            {stats.map((stat, index) => (
+            {statsData.map((stat, index) => (
               <TouchableOpacity key={stat.label} style={styles.statItem}>
                 <MaterialCommunityIcons name={stat.icon} size={24} color="#6C63FF" style={styles.statIcon} />
                 <Text variant="headlineSmall" style={styles.statValue}>
@@ -784,7 +810,7 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                 <Text variant="bodyMedium" style={styles.statLabel}>
                   {stat.label}
                 </Text>
-                {index < stats.length - 1 && <View style={styles.statDivider} />}
+                {index < statsData.length - 1 && <View style={styles.statDivider} />}
               </TouchableOpacity>
             ))}
           </View>
@@ -957,42 +983,69 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
               <Text variant="titleMedium" style={styles.sectionTitle}>Recent Reviews</Text>
               <Text variant="bodyMedium" style={styles.reviewCount}>({reviews.length})</Text>
             </View>
-            {displayedReviews.map((review) => (
-              <Card key={review.id} style={styles.reviewCard}>
-                <View style={styles.cardContainer}>
-                  <Card.Content>
-                    <View style={styles.reviewHeader}>
-                      <View style={styles.reviewAuthorContainer}>
-                        <Avatar.Text size={36} label={review.avatar} style={styles.reviewAvatar} />
-                        <View>
-                          <Text variant="titleSmall" style={styles.reviewAuthor}>
-                            {review.author}
-                          </Text>
-                          <Text variant="bodySmall" style={styles.reviewDate}>
-                            {review.date}
-                          </Text>
+            
+            {reviewsLoading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color="#6C63FF" />
+                <Text variant="bodyMedium" style={{ marginTop: 8, color: '#666' }}>Loading reviews...</Text>
+              </View>
+            ) : reviews.length === 0 ? (
+              <View style={styles.emptyReviewsContainer}>
+                <MaterialCommunityIcons name="star-outline" size={48} color="#CCCCCC" />
+                <Text variant="bodyLarge" style={styles.emptyReviewsText}>No reviews yet</Text>
+                <Text variant="bodySmall" style={styles.emptyReviewsSubtext}>Reviews from employers will appear here</Text>
+              </View>
+            ) : (
+              <>
+                {displayedReviews.map((review) => (
+                  <Card key={review.id} style={styles.reviewCard}>
+                    <View style={styles.cardContainer}>
+                      <Card.Content>
+                        <View style={styles.reviewHeader}>
+                          <View style={styles.reviewAuthorContainer}>
+                            <Avatar.Text 
+                              size={36} 
+                              label={getInitials(review.employerName)} 
+                              style={styles.reviewAvatar} 
+                            />
+                            <View>
+                              <Text variant="titleSmall" style={styles.reviewAuthor}>
+                                {review.employerName}
+                              </Text>
+                              <Text variant="bodySmall" style={styles.reviewDate}>
+                                {formatReviewDate(review.reviewDate)}
+                              </Text>
+                              {review.projectTitle && (
+                                <Text variant="bodySmall" style={styles.projectTitle}>
+                                  Project: {review.projectTitle}
+                                </Text>
+                              )}
+                            </View>
+                          </View>
+                          <View style={styles.reviewRating}>
+                            <MaterialCommunityIcons name="star" size={16} color="#FFC107" />
+                            <Text variant="bodyMedium">{review.rating}</Text>
+                          </View>
                         </View>
-                      </View>
-                      <View style={styles.reviewRating}>
-                        <MaterialCommunityIcons name="star" size={16} color="#FFC107" />
-                        <Text variant="bodyMedium">{review.rating}</Text>
-                      </View>
+                        {review.comment && (
+                          <Text variant="bodyMedium" style={styles.reviewComment}>
+                            {review.comment}
+                          </Text>
+                        )}
+                      </Card.Content>
                     </View>
-                    <Text variant="bodyMedium" style={styles.reviewComment}>
-                      {review.comment}
-                    </Text>
-                  </Card.Content>
-                </View>
-              </Card>
-            ))}
-            {reviews.length > 2 && (
-              <Button
-                mode="text"
-                onPress={() => setShowAllReviews(!showAllReviews)}
-                style={styles.showMoreButton}
-              >
-                {showAllReviews ? 'Show Less' : 'Show All Reviews'}
-              </Button>
+                  </Card>
+                ))}
+                {reviews.length > 2 && (
+                  <Button
+                    mode="text"
+                    onPress={() => setShowAllReviews(!showAllReviews)}
+                    style={styles.showMoreButton}
+                  >
+                    {showAllReviews ? 'Show Less' : 'Show All Reviews'}
+                  </Button>
+                )}
+              </>
             )}
           </View>
         </View>
@@ -1542,6 +1595,29 @@ const styles = StyleSheet.create({
   reviewsSection: {
     width: '100%',
     marginBottom: 24,
+  },
+  emptyReviewsContainer: {
+    width: '100%',
+    height: 150,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F8F9FF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#EEEEEE',
+    borderStyle: 'dashed',
+  },
+  emptyReviewsText: {
+    color: '#888',
+    marginTop: 12,
+  },
+  emptyReviewsSubtext: {
+    color: '#AAA',
+    marginTop: 4,
+  },
+  projectTitle: {
+    color: '#666',
+    marginTop: 4,
   },
 });
 
