@@ -87,7 +87,7 @@ const JobCard: React.FC<JobCardProps> = ({
                       end={{ x: 1, y: 0 }}
                       style={styles.recommendedBadgeContainer}
                     >
-                      <Text style={styles.recommendedBadgeText}>Recommended</Text>
+                      <MaterialCommunityIcons name="crown" size={16} color="white" />
                     </LinearGradient>
                     
                     {matchScore && (
@@ -108,12 +108,6 @@ const JobCard: React.FC<JobCardProps> = ({
               <Text variant="bodySmall" style={styles.companyName}>
                 {companyName}
               </Text>
-              
-              {isRecommendation && (
-                <Text variant="bodySmall" style={styles.matchText}>
-                  Company: {job.companyName || `Generated Employer ${job.employerId || ""}`} | Match Score: {matchScore}
-                </Text>
-              )}
               
               <Text variant="bodyMedium" style={styles.description}>
                 {formatDescription(job.description)}
@@ -259,15 +253,12 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   recommendedBadgeContainer: {
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
     marginBottom: 4,
-  },
-  recommendedBadgeText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: 'bold',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   matchScoreContainer: {
     backgroundColor: '#FFF9C4',

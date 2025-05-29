@@ -15,7 +15,7 @@ export interface UserProfile {
 export interface EmployeeService {
   id?: number;
   name: string;
-  price: string;
+  price?: string;
   icon: string;
 }
 

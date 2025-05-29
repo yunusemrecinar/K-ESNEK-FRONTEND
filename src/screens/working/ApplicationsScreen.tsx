@@ -1,6 +1,6 @@
 import React, { useCallback, useState, useEffect } from 'react';
 import { View, StyleSheet, FlatList, RefreshControl, Dimensions } from 'react-native';
-import { Text, Card, Chip, ActivityIndicator, Button, Searchbar, useTheme, Snackbar } from 'react-native-paper';
+import { Text, Card, Chip, ActivityIndicator, Button, Searchbar, useTheme, Snackbar, IconButton } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { format } from 'date-fns';
@@ -151,7 +151,7 @@ const ApplicationsScreen = () => {
           jobId: app.jobId,
           applicationStatus: app.applicationStatus || 'Pending',
           coverLetter: app.coverLetter,
-          resumeId: app.resumeId,
+          resumeId: app.resumeFileBlobId,
           answers: app.answers,
           notes: app.notes,
           createdAt: app.createdAt,
@@ -340,7 +340,19 @@ const ApplicationsScreen = () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text variant="headlineMedium" style={styles.title}>My Applications</Text>
+        <View style={styles.headerRow}>
+          <IconButton
+            icon="arrow-left"
+            size={24}
+            onPress={() => navigation.goBack()}
+            style={styles.backButton}
+          />
+          <IconButton
+            icon="briefcase-outline"
+            size={24}
+            style={styles.applicationsIcon}
+          />
+        </View>
         <Searchbar
           placeholder="Search applications..."
           onChangeText={setSearchQuery}
@@ -401,9 +413,16 @@ const styles = StyleSheet.create({
     padding: 16,
     backgroundColor: '#fff',
   },
-  title: {
-    marginBottom: 16,
-    fontWeight: 'bold',
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  backButton: {
+    marginRight: 16,
+  },
+  applicationsIcon: {
+    marginRight: 16,
   },
   searchBar: {
     marginBottom: 12,

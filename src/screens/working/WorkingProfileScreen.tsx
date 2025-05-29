@@ -76,9 +76,11 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   const userId = user?.id || '0'; // Get user ID from AuthContext or default to 0
   const rating = profile?.averageRating || 4.9;
 
+  console.log("stats", stats);
+
   const statsData: Stat[] = [
     { label: 'Projects', value: stats?.totalProjects?.toString() || profile?.totalProjects?.toString() || '0', icon: 'briefcase-outline' },
-    { label: 'Reviews', value: stats?.totalRatingsSum?.toString() || profile?.totalReviews?.toString() || '0', icon: 'star-outline' },
+    { label: 'Reviews', value: profile?.totalReviews?.toString() || '0', icon: 'star-outline' },
     { label: 'Years', value: stats?.yearsOfExperience?.toString() || profile?.yearsOfExperience?.toString() || '0', icon: 'calendar-outline' },
   ];
 
@@ -86,10 +88,10 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
 
   // Initialize default services
   const defaultServices: EmployeeService[] = [
-    { name: 'Pet Walking', price: '$20/hr', icon: 'dog-side' },
-    { name: 'Pet Sitting', price: '$50/day', icon: 'home' },
-    { name: 'Pet Training', price: '$40/hr', icon: 'school' },
-    { name: 'Pet Grooming', price: '$35/session', icon: 'scissors-cutting' },
+    { name: 'Pet Walking', icon: 'dog-side' },
+    { name: 'Pet Sitting', icon: 'home' },
+    { name: 'Pet Training', icon: 'school' },
+    { name: 'Pet Grooming', icon: 'scissors-cutting' },
   ];
 
   // Ensure services is an array by handling when it might be a string
@@ -532,7 +534,7 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   };
   
   const addService = () => {
-    setCurrentService({ name: '', price: '', icon: 'briefcase-outline' });
+    setCurrentService({ name: '', icon: 'briefcase-outline' });
     setServiceEditIndex(null);
     setServiceModalVisible(true);
   };
@@ -596,18 +598,9 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                 placeholderTextColor="#999"
               />
               
-              <Text variant="labelLarge" style={styles.formLabel}>Price</Text>
-              <TextInput
-                style={styles.serviceInput}
-                value={currentService?.price}
-                onChangeText={(text) => setCurrentService({ ...currentService!, price: text })}
-                placeholder="e.g. $20/hr"
-                placeholderTextColor="#999"
-              />
-              
               <Text variant="labelLarge" style={styles.formLabel}>Select an Icon</Text>
               <View style={styles.iconSelector}>
-                {['dog-side', 'home', 'school', 'scissors-cutting', 'paw', 'food-bowl', 'cat', 'bird', 'walk', 'car', 'human-handsup', 'toy-brick'].map((icon) => (
+                {['dog-side', 'home', 'school', 'scissors-cutting', 'paw', 'bowl', 'cat', 'bird', 'walk', 'car', 'human-handsup', 'toy-brick'].map((icon) => (
                   <TouchableOpacity
                     key={icon}
                     style={[
@@ -638,7 +631,7 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                 mode="contained" 
                 onPress={saveService}
                 style={styles.modalButtonPrimary}
-                disabled={!currentService?.name || !currentService?.price}
+                disabled={!currentService?.name || !currentService?.icon}
               >
                 Save
               </Button>
@@ -855,8 +848,6 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                 )}
                 
                 <View style={styles.certificatesContainer}>
-                  <Chip icon="certificate" style={styles.certificateChip}>Pet First Aid</Chip>
-                  <Chip icon="certificate" style={styles.certificateChip}>CPR Certified</Chip>
                 </View>
               </Card.Content>
             </View>
@@ -912,7 +903,6 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                           </View>
                           <View style={styles.serviceEditInfo}>
                             <Text variant="titleSmall" style={styles.serviceEditName}>{service.name}</Text>
-                            <Text variant="bodySmall" style={styles.serviceEditPrice}>{service.price}</Text>
                           </View>
                           <View style={styles.serviceEditActions}>
                             <IconButton
@@ -946,32 +936,34 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                 )}
               </View>
             ) : (
-              <ScrollView 
-                horizontal 
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.servicesScrollContent}
-              >
-                {services.map((service, index) => (
-                  <Card key={index} style={styles.serviceCardNew}>
-                    <View style={styles.serviceCardContainer}>
-                      <View style={styles.serviceCardContent}>
-                        <View style={styles.serviceIconBadge}>
-                          <MaterialCommunityIcons name={service.icon as any} size={24} color="#fff" />
-                        </View>
-                        <Text variant="titleMedium" style={styles.serviceTitle}>
-                          {service.name}
-                        </Text>
-                        <View style={styles.servicePriceContainer}>
-                          <Text style={styles.currencySymbol}>$</Text>
-                          <Text variant="bodyLarge" style={styles.servicePrice}>
-                            {service.price.replace(/^\$/, '')}
+              services.length === 0 ? (
+                <View style={styles.emptyServicesContainer}>
+                  <MaterialCommunityIcons name="briefcase-outline" size={48} color="#CCCCCC" />
+                  <Text variant="bodyLarge" style={styles.emptyServicesText}>No services yet</Text>
+                  <Text variant="bodySmall" style={styles.emptyServicesSubtext}>Tap + to add your first service</Text>
+                </View>
+              ) : (
+                <ScrollView 
+                  horizontal 
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.servicesScrollContent}
+                >
+                  {services.map((service, index) => (
+                    <Card key={index} style={styles.serviceCardNew}>
+                      <View style={styles.serviceCardContainer}>
+                        <View style={styles.serviceCardContent}>
+                          <View style={styles.serviceIconBadge}>
+                            <MaterialCommunityIcons name={service.icon as any} size={24} color="#fff" />
+                          </View>
+                          <Text variant="titleMedium" style={styles.serviceTitle}>
+                            {service.name}
                           </Text>
                         </View>
                       </View>
-                    </View>
-                  </Card>
-                ))}
-              </ScrollView>
+                    </Card>
+                  ))}
+                </ScrollView>
+              )
             )}
           </View>
 
@@ -1523,11 +1515,13 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   reviewsScrollContainer: {
-    maxHeight: 180,
+    maxHeight: 220,
     marginBottom: 8,
   },
   reviewCard: {
-    marginBottom: 12,
+    marginTop: 4,
+    marginBottom: 16,
+    marginHorizontal: 4,
     borderRadius: 12,
     ...Platform.select({
       ios: {
@@ -1544,6 +1538,8 @@ const styles = StyleSheet.create({
   cardContainer: {
     overflow: 'hidden',
     borderRadius: 12,
+    padding: 8,
+    paddingTop: 16,
   },
   reviewHeader: {
     flexDirection: 'row',
