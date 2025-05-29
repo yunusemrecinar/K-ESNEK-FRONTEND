@@ -367,7 +367,7 @@ const ApplicationDetailsScreen = () => {
     try {
       // Construct proper URL for resume download
       // Use the ngrok URL or API URL from the config
-      const apiUrl = 'https://e8ac-5-24-158-207.ngrok-free.app/api';
+      const apiUrl = 'http://165.22.90.212:8080/api';
       const fileUrl = `/files/download/${application.resumeId}`;
       Linking.openURL(`${apiUrl}${fileUrl}`);
     } catch (error) {
@@ -586,7 +586,7 @@ const ApplicationDetailsScreen = () => {
     : application.employeeProfile 
       ? `${application.employeeProfile.firstName} ${application.employeeProfile.lastName}`.trim()
       : 'Unknown Applicant';
-      
+
   const applicantEmail = application.user?.email || 'No email provided';
   const hasResume = !!application.resumeId;
   const hasCoverLetter = !!application.coverLetter && application.coverLetter.trim() !== '';

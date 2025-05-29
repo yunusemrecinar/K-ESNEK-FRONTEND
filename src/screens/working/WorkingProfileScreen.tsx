@@ -181,7 +181,7 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
         
         // Replace localhost URLs with ngrok URL
         if (url.includes('localhost') || url.includes('127.0.0.1')) {
-          return url.replace(/(http|https):\/\/(localhost|127\.0\.0\.1)(:\d+)?/, 'https://e8ac-5-24-158-207.ngrok-free.app');
+          return url.replace(/(http|https):\/\/(localhost|127\.0\.0\.1)(:\d+)?/, 'http://165.22.90.212:8080');
         }
         
         return url;
