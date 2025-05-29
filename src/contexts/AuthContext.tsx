@@ -226,6 +226,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Load specific data based on account type
           if (storedAccountType === 'employee' && storedEmployeeData) {
             setEmployeeData(JSON.parse(storedEmployeeData));
+
+            console.log("employeeData", employeeData);
             
             try {
               await savedJobsApi.syncWithBackend();

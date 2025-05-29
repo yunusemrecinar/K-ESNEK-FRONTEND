@@ -30,6 +30,7 @@ import { CommonActions } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { CompositeScreenParamList } from '../../types/navigation';
 import { employeeReviewsService, EmployeeReviewDto } from '../../services/api/employeeReviews';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width } = Dimensions.get('window');
 
@@ -52,7 +53,6 @@ type Props = {
 const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   const { user } = useContext(AuthContext);
   const { logout } = useAuth();
-  const [showAllReviews, setShowAllReviews] = useState(false);
   const [profilePicture, setProfilePicture] = useState<string | null>(null);
   const [backgroundPicture, setBackgroundPicture] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -75,7 +75,6 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   
   const userId = user?.id || '0'; // Get user ID from AuthContext or default to 0
   const rating = profile?.averageRating || 4.9;
-  console.log("rating", rating);
 
   const statsData: Stat[] = [
     { label: 'Projects', value: stats?.totalProjects?.toString() || profile?.totalProjects?.toString() || '0', icon: 'briefcase-outline' },
@@ -106,17 +105,19 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   }, [userId]);
 
   useEffect(() => {
-    if (profile?.id) {
+    if (profile?.id && profile.id > 0) {
       fetchReviews();
     }
   }, [profile?.id]);
 
+  
+
   const fetchReviews = async () => {
-    if (!profile?.id) return;
+    if (!profile?.id || profile.id <= 0) return;
     
     try {
       setReviewsLoading(true);
-      const reviewData = await employeeReviewsService.getEmployeeReviews(profile.id);
+      const reviewData = await employeeReviewsService.getEmployeeReviews(profile.id, false, 10); // Limit to 10 reviews
       setReviews(reviewData.recentReviews || []);
     } catch (error) {
       console.error("Error fetching reviews:", error);
@@ -416,8 +417,6 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
       setIsUploading(false);
     }
   };
-
-  const displayedReviews = showAllReviews ? reviews : reviews.slice(0, 2);
 
   const renderImagePickerModal = () => {
     return (
@@ -996,8 +995,12 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                 <Text variant="bodySmall" style={styles.emptyReviewsSubtext}>Reviews from employers will appear here</Text>
               </View>
             ) : (
-              <>
-                {displayedReviews.map((review) => (
+              <ScrollView 
+                style={styles.reviewsScrollContainer}
+                showsVerticalScrollIndicator={true}
+                nestedScrollEnabled={true}
+              >
+                {reviews.map((review) => (
                   <Card key={review.id} style={styles.reviewCard}>
                     <View style={styles.cardContainer}>
                       <Card.Content>
@@ -1036,16 +1039,7 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
                     </View>
                   </Card>
                 ))}
-                {reviews.length > 2 && (
-                  <Button
-                    mode="text"
-                    onPress={() => setShowAllReviews(!showAllReviews)}
-                    style={styles.showMoreButton}
-                  >
-                    {showAllReviews ? 'Show Less' : 'Show All Reviews'}
-                  </Button>
-                )}
-              </>
+              </ScrollView>
             )}
           </View>
         </View>
@@ -1524,12 +1518,13 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     color: '#333',
   },
-  showMoreButton: {
-    marginTop: 8,
-  },
   reviewCount: {
     color: '#666',
     marginLeft: 4,
+  },
+  reviewsScrollContainer: {
+    maxHeight: 180,
+    marginBottom: 8,
   },
   reviewCard: {
     marginBottom: 12,

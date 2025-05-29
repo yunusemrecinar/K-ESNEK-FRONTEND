@@ -44,11 +44,14 @@ export const employeeReviewsService = {
   /**
    * Get all reviews for a specific employee
    */
-  async getEmployeeReviews(employeeId: number, includeHidden: boolean = false): Promise<EmployeeReviewSummaryDto> {
+  async getEmployeeReviews(employeeId: number, includeHidden: boolean = false, limit?: number): Promise<EmployeeReviewSummaryDto> {
     try {
-      const response = await apiClient.instance.get<ApiResponse<EmployeeReviewSummaryDto>>(
-        `/employee-reviews/employee/${employeeId}?includeHidden=${includeHidden}`
-      );
+      let url = `/employee-reviews/employee/${employeeId}?includeHidden=${includeHidden}`;
+      if (limit !== undefined) {
+        url += `&limit=${limit}`;
+      }
+      
+      const response = await apiClient.instance.get<ApiResponse<EmployeeReviewSummaryDto>>(url);
       
       if (response.data.success && response.data.data) {
         return response.data.data;
