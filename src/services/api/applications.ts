@@ -5,7 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 export interface CreateApplicationRequest {
   jobId: number;
   coverLetter?: string;
-  resumeId?: number;
+  resumeFileBlobId?: number;
   notes?: string;
 }
 
@@ -15,7 +15,7 @@ export interface JobApplication {
   userId: number;
   applicationStatus: string;
   coverLetter?: string;
-  resumeId?: number;
+  resumeFileBlobId?: number;
   answers?: string;
   notes?: string;
   createdAt: string;
@@ -153,7 +153,7 @@ export const applicationsApi = {
         return applicationsApi.applyForJob({
           jobId,
           coverLetter,
-          resumeId,
+          resumeFileBlobId: resumeId,
           notes
         });
       } catch (uploadError: any) {
