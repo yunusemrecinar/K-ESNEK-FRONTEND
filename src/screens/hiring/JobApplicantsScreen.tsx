@@ -61,7 +61,6 @@ const JobApplicantsScreen = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [fetchingUserDetails, setFetchingUserDetails] = useState(false);
-  const [missingProfilesCount, setMissingProfilesCount] = useState(0);
 
   const statusOptions = ['All', 'Pending', 'Reviewing', 'Interviewed', 'Accepted', 'Rejected'];
 
@@ -119,98 +118,58 @@ const JobApplicantsScreen = () => {
     if (!applications || applications.length === 0) return;
     
     setFetchingUserDetails(true);
-    let authError = false;
-    let notFoundCount = 0;
     
     try {
-      // Process applications in smaller batches to avoid too many concurrent requests
-      const batchSize = 3;
       const updatedApplications = [...applications];
       
-      batchLoop: for (let i = 0; i < applications.length; i += batchSize) {
-        const batch = applications.slice(i, Math.min(i + batchSize, applications.length));
+      // Fetch employee profiles for each application
+      for (let i = 0; i < applications.length; i++) {
+        const app = applications[i];
         
-        // Create an array of promises for this batch
-        const batchPromises = batch.map(async (app, batchIndex) => {
-          const appIndex = i + batchIndex;
-          
-          if (app.userId) {
-            try {
-              // Fetch employee profile for this user using the public endpoint
-              const employeeProfile = await employeeService.getPublicEmployeeProfile(app.userId);
-              
-              // Update application with user details
-              updatedApplications[appIndex] = {
-                ...app,
-                employeeProfile,
-                user: {
-                  id: app.userId,
-                  firstName: employeeProfile.firstName || '',
-                  lastName: employeeProfile.lastName || '',
-                  // Use a default email since it's not available in the profile
-                  email: app.user?.email || `employee${app.userId}@example.com`,
-                  profilePicture: employeeProfile.profilePictureUrl
-                }
-              };
-              
-              // Update the applications state incrementally to show progress
-              setApplications([...updatedApplications]);
-            } catch (error: any) {
-              console.error(`Error fetching details for user ${app.userId}:`, error);
-              
-              // Check if it's an authentication error
-              if (error.response && (error.response.status === 401 || error.response.status === 403)) {
-                authError = true;
-                // Return from this promise to handle auth error after all promises
-                return;
+        if (app.userId && !app.employeeProfile) {
+          try {
+            // Fetch employee profile using the public endpoint (now includes email)
+            const employeeProfile = await employeeService.getPublicEmployeeProfile(app.userId);
+            
+            // Update application with employee profile
+            updatedApplications[i] = {
+              ...app,
+              employeeProfile,
+              user: {
+                id: app.userId,
+                firstName: employeeProfile.firstName || '',
+                lastName: employeeProfile.lastName || '',
+                email: employeeProfile.email || `user${app.userId}@example.com`,
+                profilePicture: employeeProfile.profilePictureUrl
               }
-              
-              // Handle 404 Not Found errors
-              if (error.response && error.response.status === 404) {
-                notFoundCount++;
-                
-                // Create basic profile with userId information only
-                updatedApplications[appIndex] = {
-                  ...app,
-                  user: {
-                    id: app.userId,
-                    firstName: '',
-                    lastName: '',
-                    email: `employee${app.userId}@example.com`,
-                    profilePicture: undefined
-                  }
-                };
+            };
+            
+            // Update the applications state to show progress
+            setApplications([...updatedApplications]);
+          } catch (error: any) {
+            console.error(`Error fetching profile for user ${app.userId}:`, error);
+            
+            // Create basic profile with userId information only for failed requests
+            updatedApplications[i] = {
+              ...app,
+              user: {
+                id: app.userId,
+                firstName: '',
+                lastName: '',
+                email: `user${app.userId}@example.com`,
+                profilePicture: undefined
               }
-              
-              // Keep the original application if fetch fails
-            }
+            };
           }
-        });
-        
-        // Wait for all promises in this batch to resolve
-        await Promise.all(batchPromises);
-        
-        // Stop processing batches if we encounter an auth error
-        if (authError) break batchLoop;
+        }
       }
       
-      // One final update in case any changes were missed
+      // Final update with all fetched profiles
       setApplications(updatedApplications);
-      
-      // Show warning if auth error occurred
-      if (authError) {
-        console.warn('Unable to fetch complete user profiles due to authentication issues');
-      }
-      
-      // Log the number of not found profiles
-      if (notFoundCount > 0) {
-        console.warn(`${notFoundCount} employee profiles were not found in the database`);
-      }
     } catch (error) {
       console.error('Error fetching user details:', error);
     } finally {
       setFetchingUserDetails(false);
-      setMissingProfilesCount(notFoundCount);
     }
   };
 
@@ -242,6 +201,8 @@ const JobApplicantsScreen = () => {
     
     return matchesSearch && matchesStatus;
   });
+
+  console.log("filteredApplications", filteredApplications);
 
   const getInitials = (firstName?: string, lastName?: string) => {
     if (!firstName && !lastName) return '?';
@@ -322,16 +283,16 @@ const JobApplicantsScreen = () => {
     let profilePicture: string | undefined;
     
     if (hasEmployeeProfile) {
-      // Use data from employee profile
+      // Use data from employee profile (now includes email from backend)
       userName = `${item.employeeProfile?.firstName || ''} ${item.employeeProfile?.lastName || ''}`.trim();
-      userEmail = item.user?.email || '';
+      userEmail = item.employeeProfile?.email || `user${item.userId}@example.com`;
       profilePicture = item.employeeProfile?.profilePictureUrl;
     } else {
       // Fallback to basic user data
       userName = hasUserData 
         ? `${item.user?.firstName || ''} ${item.user?.lastName || ''}`.trim() 
         : 'Unknown Applicant';
-      userEmail = item.user?.email || 'No email provided';
+      userEmail = item.user?.email || `user${item.userId}@example.com`;
       profilePicture = item.user?.profilePicture;
     }
     
@@ -485,9 +446,6 @@ const JobApplicantsScreen = () => {
 
   // Calculate counts for the summary
   const applicantsCount = filteredApplications.length;
-  const missingProfilesPercentage = applicantsCount > 0 
-    ? Math.round((missingProfilesCount / applicantsCount) * 100) 
-    : 0;
 
   // Define styles here to access the theme object
   const dynamicStyles = {
@@ -549,25 +507,7 @@ const JobApplicantsScreen = () => {
                   {applications.length} {applications.length === 1 ? 'candidate' : 'candidates'}
                 </Text>
               </View>
-              
-              {missingProfilesCount > 0 && (
-                <View style={styles.summaryItem}>
-                  <MaterialCommunityIcons name="alert-circle" size={22} color="#FF9800" />
-                  <Text variant="bodyMedium" style={{color: '#FF9800', marginLeft: 4}}>
-                    {missingProfilesCount} missing {missingProfilesCount === 1 ? 'profile' : 'profiles'}
-                  </Text>
-                </View>
-              )}
             </View>
-
-            {missingProfilesCount > 0 && (
-              <View style={styles.warningContainer}>
-                <MaterialCommunityIcons name="information-outline" size={16} color="#FF9800" />
-                <Text variant="bodySmall" style={styles.warningMessage}>
-                  Some employee profiles could not be found. Basic information is still available.
-                </Text>
-              </View>
-            )}
           </View>
         )}
         
@@ -843,20 +783,6 @@ const styles = StyleSheet.create({
   },
   summaryItemText: {
     marginLeft: 4,
-  },
-  warningContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
-    backgroundColor: 'rgba(255, 152, 0, 0.1)',
-    padding: 8,
-    borderRadius: 4,
-  },
-  warningMessage: {
-    color: '#FF9800',
-    marginLeft: 8,
-    flex: 1,
-    fontSize: 12,
   },
   metaInfoRow: {
     marginTop: 2,

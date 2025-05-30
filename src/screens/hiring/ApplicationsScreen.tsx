@@ -68,18 +68,13 @@ const ApplicationsScreen = () => {
     }
   };
 
-  // Enhanced function to fetch employee details with additional user info
+  // Enhanced function to fetch employee details - now simplified since the public endpoint includes email
   const fetchEnhancedEmployeeDetails = async (userId: number, employeeId?: number): Promise<EmployeeProfile | null> => {
     try {
-      if (employeeId) {
-        // Try to get enhanced profile with user details
-        return await employeeService.getEnhancedEmployeeProfile(userId, employeeId);
-      } else {
-        // Fall back to basic profile
-        return await employeeService.getPublicEmployeeProfile(userId);
-      }
+      // Use the public profile endpoint which now includes email
+      return await employeeService.getPublicEmployeeProfile(userId);
     } catch (error) {
-      console.error(`Error fetching enhanced employee details for user ID ${userId}, employee ID ${employeeId}:`, error);
+      console.error(`Error fetching employee details for user ID ${userId}:`, error);
       return null;
     }
   };
@@ -90,13 +85,11 @@ const ApplicationsScreen = () => {
     
     for (let i = 0; i < apps.length; i++) {
       const app = apps[i];
-      // Use the correct user ID - prefer employeeProfile.userId if available, fallback to app.userId
-      const userIdToFetch = app.employeeProfile?.userId || app.userId;
       
-      if (userIdToFetch && !app.employeeProfile) {
+      if (app.userId && !app.employeeProfile) {
         try {
-          // Use the app.userId as the employee ID since it refers to the EmployeeUsers table ID
-          const profile = await fetchEnhancedEmployeeDetails(userIdToFetch, app.userId);
+          // Fetch employee profile using the user ID from the application
+          const profile = await fetchEnhancedEmployeeDetails(app.userId);
           if (profile) {
             enhancedApps[i] = {
               ...enhancedApps[i],
@@ -104,7 +97,7 @@ const ApplicationsScreen = () => {
             };
           }
         } catch (error) {
-          console.error(`Failed to fetch profile for user ${userIdToFetch}:`, error);
+          console.error(`Failed to fetch profile for user ${app.userId}:`, error);
         }
       }
     }
@@ -304,12 +297,8 @@ const ApplicationsScreen = () => {
     const lastName = item.employeeProfile?.lastName || '';
     const applicantName = firstName && lastName ? `${firstName} ${lastName}` : `Applicant #${item.userId}`;
     
-    // Get email using the correct user ID - prefer employeeProfile.userId, fallback to application userId
-    const actualUserId = item.employeeProfile?.userId || item.userId;
-    const applicantEmail = item.employeeProfile?.email || 
-      (hasEmployeeProfile && firstName && lastName 
-        ? `${firstName.toLowerCase()}.${lastName.toLowerCase()}@example.com`
-        : `user${actualUserId}@example.com`);
+    // Get email from the employee profile (now provided by the backend)
+    const applicantEmail = item.employeeProfile?.email || `user${item.userId}@example.com`;
     
     // Get profile picture
     const profilePicture = item.employeeProfile?.profilePictureUrl;
