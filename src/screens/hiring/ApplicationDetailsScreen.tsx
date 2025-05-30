@@ -10,6 +10,7 @@ import { employeeService } from '../../services/api/employee';
 import { employeeReviewsService, CreateEmployeeReviewDto } from '../../services/api/employeeReviews';
 import { EmployeeProfile } from '../../types/profile';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { sendApplicationStatusMessage } from '../../utils/applicationMessaging';
 
 // Define the types
 type RootStackParamList = {
@@ -28,7 +29,7 @@ interface Application {
   userId: number;
   applicationStatus: string;
   coverLetter?: string;
-  resumeId?: number;
+  resumeFileBlobId?: number;
   answers?: string;
   notes?: string;
   createdAt: string;
@@ -106,8 +107,8 @@ const ApplicationDetailsScreen = () => {
           fetchJobDetails(applicationData.jobId);
         }
         
-        // Fetch applicant details if not included
-        if (applicationData.userId && !applicationData.user) {
+        // Always fetch applicant details to ensure we have complete profile data
+        if (applicationData.userId) {
           await fetchApplicantDetails(applicationData.userId);
         }
       } else {
@@ -138,20 +139,40 @@ const ApplicationDetailsScreen = () => {
 
   const fetchApplicantDetails = async (userId: number) => {
     try {
-      // Try to get employee profile
-      const employeeProfile = await employeeService.getPublicEmployeeProfile(userId);
+      // Try to get enhanced employee profile - use the employee ID if available from current application data
+      const employeeId = application?.userId; // This is the EmployeeUsers table ID
+      const employeeProfile = employeeId 
+        ? await employeeService.getEnhancedEmployeeProfile(userId, employeeId)
+        : await employeeService.getPublicEmployeeProfile(userId);
       
       setApplication(prev => {
         if (!prev) return null;
+        
+        // Use the correct user ID - prefer employeeProfile.userId if available, fallback to userId
+        const actualUserId = employeeProfile.userId || userId;
+        const firstName = employeeProfile.firstName || '';
+        const lastName = employeeProfile.lastName || '';
+        
+        // Generate email with same logic as ApplicationsScreen
+        const email = employeeProfile.email || 
+          (firstName && lastName 
+            ? `${firstName.toLowerCase()}.${lastName.toLowerCase()}@example.com`
+            : `user${actualUserId}@example.com`);
+        
+        // Merge with existing user data if available
+        const existingUser = prev.user;
         
         return {
           ...prev,
           employeeProfile,
           user: {
+            // Start with existing user data if available
+            ...existingUser,
+            // Override with enhanced data
             id: userId,
-            firstName: employeeProfile.firstName || '',
-            lastName: employeeProfile.lastName || '',
-            email: `employee${userId}@example.com`,
+            firstName,
+            lastName,
+            email,
             profilePicture: employeeProfile.profilePictureUrl
           }
         };
@@ -221,6 +242,35 @@ const ApplicationDetailsScreen = () => {
     }
   };
 
+  // Send automatic message for application status change
+  const handleApplicationStatusMessage = async (status: 'Accepted' | 'Rejected') => {
+    if (!application) {
+      console.error('No application data available for messaging');
+      return;
+    }
+    
+    // Get applicant name for personalized message
+    const applicantName = application.user 
+      ? `${application.user.firstName} ${application.user.lastName}`.trim() 
+      : application.employeeProfile 
+        ? `${application.employeeProfile.firstName} ${application.employeeProfile.lastName}`.trim()
+        : 'there';
+    
+    // Get job title if available
+    const jobTitle = job?.title || 'the position';
+    
+    // Use the utility function to send the message
+    const success = await sendApplicationStatusMessage(status, {
+      employeeId: application.userId,
+      applicantName,
+      jobTitle
+    });
+    
+    if (!success) {
+      console.warn(`Failed to send automatic ${status.toLowerCase()} message to employee ${application.userId}`);
+    }
+  };
+
   // Update application status
   const updateApplicationStatus = async (newStatus: string) => {
     if (!application) return;
@@ -229,7 +279,7 @@ const ApplicationDetailsScreen = () => {
       setStatusUpdating(true);
       
       // Make sure we have a valid resumeId (must be > 0)
-      const resumeId = application.resumeId && application.resumeId > 0 ? application.resumeId : 1;
+      const resumeId = application.resumeFileBlobId && application.resumeFileBlobId > 0 ? application.resumeFileBlobId : 1;
       
       // Create complete request data with all required fields
       const requestData = {
@@ -254,6 +304,12 @@ const ApplicationDetailsScreen = () => {
           applicationStatus: newStatus,
           updatedAt: now
         } : null);
+        
+        // Send automatic message for Accept/Reject status changes
+        if (newStatus === 'Accepted' || newStatus === 'Rejected') {
+          await handleApplicationStatusMessage(newStatus as 'Accepted' | 'Rejected');
+        }
+        
         setSnackbarMessage(`Application ${newStatus.toLowerCase()} successfully`);
         setSnackbarType('success');
         setSnackbarVisible(true);
@@ -357,7 +413,7 @@ const ApplicationDetailsScreen = () => {
 
   // View resume
   const viewResume = async () => {
-    if (!application || !application.resumeId) {
+    if (!application || !application.resumeFileBlobId) {
       setSnackbarMessage('No resume available for this application.');
       setSnackbarType('error');
       setSnackbarVisible(true);
@@ -368,7 +424,7 @@ const ApplicationDetailsScreen = () => {
       // Construct proper URL for resume download
       // Use the ngrok URL or API URL from the config
       const apiUrl = 'http://165.22.90.212:8080/api';
-      const fileUrl = `/files/download/${application.resumeId}`;
+      const fileUrl = `/files/download/${application.resumeFileBlobId}`;
       Linking.openURL(`${apiUrl}${fileUrl}`);
     } catch (error) {
       console.error('Error opening resume:', error);
@@ -587,8 +643,34 @@ const ApplicationDetailsScreen = () => {
       ? `${application.employeeProfile.firstName} ${application.employeeProfile.lastName}`.trim()
       : 'Unknown Applicant';
 
-  const applicantEmail = application.user?.email || 'No email provided';
-  const hasResume = !!application.resumeId;
+  // Improved email logic similar to ApplicationsScreen
+  const getApplicantEmail = () => {
+    // First try user.email if available
+    if (application.user?.email) {
+      return application.user.email;
+    }
+    
+    // Then try employeeProfile.email if available  
+    if (application.employeeProfile?.email) {
+      return application.employeeProfile.email;
+    }
+    
+    // Generate email from names if available
+    const firstName = application.user?.firstName || application.employeeProfile?.firstName;
+    const lastName = application.user?.lastName || application.employeeProfile?.lastName;
+    
+    if (firstName && lastName) {
+      return `${firstName.toLowerCase()}.${lastName.toLowerCase()}@example.com`;
+    }
+    
+    // Use the correct user ID - prefer employeeProfile.userId, fallback to application.userId
+    const actualUserId = application.employeeProfile?.userId || application.userId;
+    return `user${actualUserId}@example.com`;
+  };
+
+  const applicantEmail = getApplicantEmail();
+  const hasResume = !!application.resumeFileBlobId;
+  console.log("application", application);
   const hasCoverLetter = !!application.coverLetter && application.coverLetter.trim() !== '';
 
   return (

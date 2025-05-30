@@ -47,6 +47,52 @@ export const employeeService = {
   },
 
   /**
+   * Get employee user details by employee ID (includes email and other user info)
+   * @param employeeId Employee ID (from EmployeeUsers table)
+   * @returns Employee user details including email
+   */
+  getEmployeeUserDetails: async (employeeId: number | string) => {
+    const response = await apiClient.instance.get(`/identity/employees/${employeeId}`);
+    return response.data;
+  },
+
+  /**
+   * Try to get enhanced employee profile with user details
+   * @param userId User ID  
+   * @param employeeId Employee ID (optional)
+   * @returns Enhanced employee profile
+   */
+  getEnhancedEmployeeProfile: async (userId: number | string, employeeId?: number | string): Promise<EmployeeProfile> => {
+    try {
+      // First, get the basic profile
+      const profile = await employeeService.getPublicEmployeeProfile(userId);
+      
+      // If we have an employee ID, try to get additional user details
+      if (employeeId) {
+        try {
+          const userDetails = await employeeService.getEmployeeUserDetails(employeeId);
+          // Merge user details if available
+          if (userDetails && userDetails.userId) {
+            return {
+              ...profile,
+              // The userDetails might have additional info we can use
+              id: typeof employeeId === 'string' ? parseInt(employeeId, 10) : employeeId,
+              userId: userDetails.userId,
+            };
+          }
+        } catch (error) {
+          console.log('Could not fetch user details, using basic profile');
+        }
+      }
+      
+      return profile;
+    } catch (error) {
+      console.error('Error fetching enhanced employee profile:', error);
+      throw error;
+    }
+  },
+
+  /**
    * Get employee statistics
    * @param userId User ID
    * @returns Employee statistics

@@ -26,6 +26,9 @@ export interface EmployeeProfile extends UserProfile {
   // Identity field (sometimes returned from backend instead of userId)
   id?: number;
   
+  // Optional email field (may be available in some contexts)
+  email?: string;
+  
   // User stats summary
   totalProjects: number;
   totalReviews: number;
@@ -52,6 +55,10 @@ export interface EmployeeProfile extends UserProfile {
   // CV reference
   cvId?: number;
   cvUrl?: string;
+  
+  // Timestamps (may be available from some endpoints)
+  createdAt?: string;
+  lastUpdatedAt?: string;
 }
 
 /**
